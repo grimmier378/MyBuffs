@@ -31,14 +31,18 @@ local check = os.time()
 local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
 
-local function getDuration(i, type)
+
+--- comments Gets the duration of a spell or song and returns the duration in HH:MM:SS format
+---@param i integer -- Spell Slot Number
+---@param type string -- 'song' or 'spell'
+---@param tooltip boolean -- is this for a tooltip if so we will display hours as well otherwise we chop it down to minutes and seconds
+---@return string -- time formated
+local function getDuration(i, type, tooltip)
     local remaining = 0
     if type == 'song' then
         remaining = SONG(i).Duration() or 0
         elseif type == 'spell' then
         remaining = BUFF(i).Duration() or 0
-        else
-        return 0
     end
     remaining = remaining / 1000 -- convert to seconds
     -- Calculate hours, minutes, and seconds
@@ -48,6 +52,9 @@ local function getDuration(i, type)
     local s = remaining % 60     -- remaining seconds after removing minutes
     -- Format the time string as H : M : S
     local sRemaining = string.format("%02d:%02d:%02d", h, m, s)
+    if not tooltip then 
+        sRemaining = string.format("%02d:%02d", m, s)
+    end
     return sRemaining
 end
 
@@ -139,7 +146,7 @@ local function MyBuffs(count)
                 ImGui.SameLine()
                 local sDur = BUFF(i).Duration.TotalMinutes() or 0
                 if sDur < buffTime then
-                    ImGui.Text(' '..(getDuration(i, 'spell') or ' '))
+                    ImGui.Text(' '..(getDuration(i, 'spell', false) or ' '))
                     else
                     ImGui.Text(' ')
                 end
@@ -166,7 +173,7 @@ local function MyBuffs(count)
                 end
                 ImGui.BeginTooltip()
                 if sName ~= '' then
-                    ImGui.Text(sName .. '\n' .. getDuration(i, 'spell'))
+                    ImGui.Text(sName .. '\n' .. getDuration(i, 'spell', true))
                     else
                     ImGui.Dummy(textureHeight,textureHeight)
                 end
@@ -191,7 +198,7 @@ local function MyBuffs(count)
                 ImGui.SameLine()
                 local sngDur = SONG(i).Duration.TotalMinutes() or 0
                 if sngDur < songTimer then
-                    ImGui.Text(' '..(getDuration(i, 'song') or ' '))
+                    ImGui.Text(' '..(getDuration(i, 'song', false) or ' '))
                     else
                     ImGui.Text(' ')
                 end
@@ -215,7 +222,7 @@ local function MyBuffs(count)
                     end
                 end
                 ImGui.BeginTooltip()
-                ImGui.Text(sName .. '\n' .. getDuration(i, 'song'))
+                ImGui.Text(sName .. '\n' .. getDuration(i, 'song', true))
                 ImGui.EndTooltip()
             end
         end
