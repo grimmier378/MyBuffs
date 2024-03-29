@@ -18,7 +18,7 @@ local TLO = mq.TLO
 local ME = TLO.Me
 local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
-local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoScrollWithMouse)
+local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
 local pulse = true
 local textureWidth = 24
 local textureHeight = 24
@@ -29,8 +29,8 @@ local rise, riseS, riseT, riseTs = true, true, true, true
 local ShowGUI = true
 local SplitWin = false
 local openGUI = true
-local songTimer, buffTime = 0.75, 5 -- timers for how many Minutes left before we show the timer. 
-local ver = "v0.1"
+local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer. 
+local ver = "v0.11"
 local check = os.time()
 local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
@@ -40,6 +40,7 @@ local openConfigGUI = false
 local themeFile = mq.configDir .. '/MyThemeZ.lua'
 local ZoomLvl = 1.0
 local gIcon = Icons.MD_SETTINGS
+local locked = false
 
 ---comment Check to see if the file we want to work on exists.
 ---@param name string -- Full Path to file
@@ -152,11 +153,6 @@ local function MyBuffs(count)
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
 
     -------------------------------------------- Buffs Section ---------------------------------
-
-    if ImGui.Button(gIcon) then
-        openConfigGUI = not openConfigGUI
-    end
-    ImGui.SameLine()
     ImGui.SeparatorText('Buffs')
     if not SplitWin then sizeY = sizeY *0.7 else sizeY = sizeY - 2 end
     ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
@@ -267,7 +263,7 @@ local function MySongs()
                     local flashColorS = IM_COL32(255, 255, 255, flashAlphaS)
                     ImGui.PushStyleColor(ImGuiCol.Text,flashColorS)
                 end
-                if sngDur < songTimer then
+                if sngDurS < songTimer then
                     ImGui.Text(' '..(getDuration(i, 'song', false) or ' '))
                     else
                     ImGui.Text(' ')
@@ -313,8 +309,12 @@ local function GUI_Buffs(open)
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
     local themeName = theme.LoadTheme or 'notheme'
+    local flags = winFlag
+    if locked then
+        flags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoMove, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
+    end
     ColorCount = DrawTheme(ColorCount, themeName)
-    open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, winFlag)
+    open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
     ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
         ImGui.PopStyleVar()
@@ -323,7 +323,24 @@ local function GUI_Buffs(open)
         ImGui.End()
         return open
     end
+    if ImGui.BeginMenuBar() then
+        local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
+        Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
+        if ImGui.Button(lockedIcon) then
+            --ImGuiWindowFlags.NoMove
+            locked = not locked
 
+        end
+        if ImGui.IsItemHovered() then
+            ImGui.BeginTooltip()
+            ImGui.Text("Lock Window")
+            ImGui.EndTooltip()
+        end
+        if ImGui.Button(gIcon..'##MyBuffsg') then
+            openConfigGUI = not openConfigGUI
+        end
+        ImGui.EndMenuBar()
+    end
     MyBuffs(MaxBuffs)
     if not SplitWin then MySongs() end
 
@@ -426,7 +443,7 @@ end
 
 local function recheckBuffs()
     local nTime = os.time()
-    if nTime - check > 1.5 or firstTime then
+    if nTime - check > 2 or firstTime then
         local lTarg = mq.TLO.Target.ID() or -1
         mq.cmdf('/target id %s', mq.TLO.Me.ID())
         -- mq.delay(1)
@@ -452,11 +469,12 @@ end
 local function MainLoop()
     while true do
         if TLO.Window('CharacterListWnd').Open() then return false end
-        mq.delay(1000)
+        mq.delay(1)
         if ME.Zoning() then
             ShowGUI = false
             local flag = not ME.Zoning()
             mq.delay(9000, function() return not ME.Zoning() end)
+            firstTime = true
             else
             ShowGUI = true
         end
