@@ -30,7 +30,7 @@ local ShowGUI = true
 local SplitWin = false
 local openGUI = true
 local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer. 
-local ver = "v0.11"
+local ver = "v0.12"
 local check = os.time()
 local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
@@ -38,9 +38,19 @@ local theme = {}
 local ColorCount, ColorCountSongs, ColorCountConf = 0, 0, 0
 local openConfigGUI = false
 local themeFile = mq.configDir .. '/MyThemeZ.lua'
+local configFile = mq.configDir .. '/MyUI_Configs.lua'
 local ZoomLvl = 1.0
 local gIcon = Icons.MD_SETTINGS
 local locked = false
+local themeName = 'Default'
+local script = 'MyBuffs'
+local defaults, settings, temp = {}, {}, {}
+defaults = {
+        Scale = 1.0,
+        LoadTheme = 'Default',
+        locked = false,
+}
+
 
 ---comment Check to see if the file we want to work on exists.
 ---@param name string -- Full Path to file
@@ -48,6 +58,62 @@ local locked = false
 local function File_Exists(name)
     local f=io.open(name,"r")
     if f~=nil then io.close(f) return true else return false end
+end
+
+
+---comment Writes settings from the settings table passed to the setting file (full path required)
+-- Uses mq.pickle to serialize the table and write to file
+---@param file string -- File Name and path
+---@param settings table -- Table of settings to write
+local function writeSettings(file, settings)
+    mq.pickle(file, settings)
+end
+
+local function loadTheme()
+    if File_Exists(themeFile) then
+        theme = dofile(themeFile)
+    else
+        theme = require('themes.lua')
+    end
+    themeName = theme.LoadTheme or 'notheme'
+end
+
+local function loadSettings()
+    if not File_Exists(configFile) then
+        mq.pickle(configFile, defaults)
+        loadSettings()
+    else
+
+    -- Load settings from the Lua config file
+    temp = {}
+    settings = dofile(configFile)
+    if not settings[script] then
+        settings[script] = {}
+        settings[script] = defaults end
+        temp = settings[script]
+    end
+
+    loadTheme()
+
+    if settings[script].locked == nil then
+        settings[script].locked = false
+    end
+
+    if settings[script].Scale == nil then
+        settings[script].Scale = 1
+    end
+
+    if not settings[script].LoadTheme then
+        settings[script].LoadTheme = theme.LoadTheme
+    end
+    locked = settings[script].locked
+    ZoomLvl = settings[script].Scale
+
+    themeName = settings[script].LoadTheme
+
+    writeSettings(configFile, settings)
+
+    temp = settings[script]
 end
 
 --- comments Gets the duration of a spell or song and returns the duration in HH:MM:SS format
@@ -308,7 +374,6 @@ local function GUI_Buffs(open)
     -- Default window size
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
-    local themeName = theme.LoadTheme or 'notheme'
     local flags = winFlag
     if locked then
         flags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoMove, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
@@ -361,7 +426,6 @@ local function GUI_Songs(open)
     -- Default window size
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
-    local themeName = theme.LoadTheme or 'notheme'
     ColorCountSongs = DrawTheme(ColorCountSongs, themeName)
     open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, winFlag)
     ImGui.SetWindowFontScale(ZoomLvl)
@@ -385,7 +449,6 @@ end
 local function MyBuffConf_GUI(open)
     if not openConfigGUI then return end
     ColorCountConf = 0
-    local themeName = theme.LoadTheme or 'notheme'
     ColorCountConf = DrawTheme(ColorCountConf, themeName)
     open, openConfigGUI = ImGui.Begin("MyBuffs Conf", open, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoCollapse))
     ImGui.SetWindowFontScale(ZoomLvl)
@@ -408,7 +471,7 @@ local function MyBuffConf_GUI(open)
             if ImGui.Selectable(data.Name, isSelected) then
                 theme.LoadTheme = data.Name
                 themeName = theme.LoadTheme
-                -- useThemeName = themeName
+                settings[script].LoadTheme = themeName
             end
         end
         ImGui.EndCombo()
@@ -433,6 +496,7 @@ local function MyBuffConf_GUI(open)
 
     if ImGui.Button('close') then
         openConfigGUI = false
+        writeSettings(configFile,settings)
     end
 
     if ColorCountConf > 0 then ImGui.PopStyleColor(ColorCountConf) end
@@ -443,7 +507,7 @@ end
 
 local function recheckBuffs()
     local nTime = os.time()
-    if nTime - check > 2 or firstTime then
+    if nTime - check > 6 or firstTime then
         local lTarg = mq.TLO.Target.ID() or -1
         mq.cmdf('/target id %s', mq.TLO.Me.ID())
         -- mq.delay(1)
@@ -455,11 +519,7 @@ end
 
 local function init()
 -- check for theme file or load defaults from our themes.lua
-    if File_Exists(themeFile) then
-        theme = dofile(themeFile)
-    else 
-        theme = require('themes.lua')
-    end
+    loadSettings()
 
     mq.imgui.init('GUI_Buffs', GUI_Buffs)
     mq.imgui.init('GUI_Songs', GUI_Songs)
