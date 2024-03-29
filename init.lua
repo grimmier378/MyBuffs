@@ -266,38 +266,37 @@ local function MyBuffs(count)
                     --ImGui.Dummy(textureHeight,textureWidth)
                     ImGui.SameLine()
                 end
-                if ShowText then
-                ---- Show Timer ----
-                if ShowTimer then
                 local sDur = BUFF(i).Duration.TotalMinutes() or 0
                 local sDurS = BUFF(i).Duration.TotalSeconds() or 0
+    
+                ---- Show Timer ----
+
                 if sDurS < 18 and sDurS > 0 then
                     local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
                     ImGui.PushStyleColor(ImGuiCol.Text,flashColor)
                 end
                 if sDur < buffTime then
-                    ImGui.Text(' '..(getDuration(i, 'spell', false) or ' '))
+                    if ShowTimer then ImGui.Text(' '..(getDuration(i, 'spell', false) or ' ')) end
                     else
                     ImGui.Text(' ')
                 end
                 ImGui.SameLine()
-            end
-                local sDur = BUFF(i).Duration.TotalMinutes() or 0
-                local sDurS = BUFF(i).Duration.TotalSeconds() or 0
+            
                 if sDurS < 18 and sDurS > 0 then
                     local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
                     ImGui.PushStyleColor(ImGuiCol.Text,flashColor)
                 end
-                ImGui.Text(' '..(BUFF(i).Name() or ''))
+
+                if ShowText then ImGui.Text(' '..(BUFF(i).Name() or '')) end
                 counter = counter + 1
                 if sDurS < 18 and sDurS > 0 then
                     ImGui.PopStyleColor()
                 end
-                else
+            else
                 sName = ''
                 ImGui.Dummy(iconSize,iconSize)
-                end
             end
+
             ImGui.EndGroup()
             if ImGui.IsItemHovered() then
                 if (ImGui.IsMouseReleased(1)) then
@@ -365,7 +364,7 @@ local function MySongs()
                 end
 
                 ------------ Show Text -------------------
-                if ShowText then
+
                 local sngDur = SONG(i).Duration.TotalMinutes() or 0
                 local sngDurS = SONG(i).Duration.TotalSeconds() or 0
                 if sngDurS < 18 and sngDurS > 0 then
@@ -373,20 +372,19 @@ local function MySongs()
                     ImGui.PushStyleColor(ImGuiCol.Text,flashColorS)
                 end
                 ----------- Show Timers -------------------
-                if ShowTimer then
+
                 if sngDurS < songTimer then
-                    ImGui.Text(' '..(getDuration(i, 'song', false) or ' '))
+                    if ShowTimer then ImGui.Text(' '..(getDuration(i, 'song', false) or ' ')) end
                     else
                     ImGui.Text(' ')
                 end
                 ImGui.SameLine()
-            end
-                ImGui.Text(' '..(SONG(i).Name() or ''))
+
+                if ShowText then ImGui.Text(' '..(SONG(i).Name() or '')) end
                 if sngDurS < 18 and sngDurS > 0 then
                     ImGui.PopStyleColor()
                 end
-            end
-                else
+            else
                 ImGui.Dummy(iconSize,iconSize)
             end
             ImGui.EndGroup()
@@ -464,7 +462,7 @@ local function GUI_Buffs(open)
     ImGui.Spacing()
     ImGui.SetWindowFontScale(1)
     ImGui.EndGroup()
-    if ImGui.IsItemHovered() then
+    if ImGui.IsWindowHovered() then
         ImGui.SetWindowFocus("MyBuffs##"..ME.DisplayName())
     end
     ImGui.End()
