@@ -394,7 +394,8 @@ local function GUI_Buffs(open)
         if ImGui.Button(lockedIcon) then
             --ImGuiWindowFlags.NoMove
             locked = not locked
-
+            settings[script].locked = locked
+            writeSettings(configFile, settings)
         end
         if ImGui.IsItemHovered() then
             ImGui.BeginTooltip()
