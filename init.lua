@@ -18,19 +18,36 @@ local TLO = mq.TLO
 local ME = TLO.Me
 local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
-local winFlag = bit32.bor(ImGuiWindowFlags.NoCollapse, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoScrollWithMouse)
+local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoScrollWithMouse)
 local pulse = true
 local textureWidth = 24
 local textureHeight = 24
 local flashAlpha = 1
-local rise = true
+local flashAlphaT = 255
+local flashAlphaS = 255
+local rise, riseS, riseT, riseTs = true, true, true, true
 local ShowGUI = true
+local SplitWin = false
+local openGUI = true
 local songTimer, buffTime = 0.75, 5 -- timers for how many Minutes left before we show the timer. 
-local ver = "v0.5.Beta"
+local ver = "v0.1"
 local check = os.time()
 local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
+local theme = {}
+local ColorCount, ColorCountSongs, ColorCountConf = 0, 0, 0
+local openConfigGUI = false
+local themeFile = mq.configDir .. '/MyThemeZ.lua'
+local ZoomLvl = 1.0
+local gIcon = Icons.MD_SETTINGS
 
+---comment Check to see if the file we want to work on exists.
+---@param name string -- Full Path to file
+---@return boolean -- returns true if the file exists and false otherwise
+local function File_Exists(name)
+    local f=io.open(name,"r")
+    if f~=nil then io.close(f) return true else return false end
+end
 
 --- comments Gets the duration of a spell or song and returns the duration in HH:MM:SS format
 ---@param i integer -- Spell Slot Number
@@ -58,33 +75,29 @@ local function getDuration(i, type, tooltip)
     return sRemaining
 end
 
-
---[[
-    Borrowed from rgmercs
-    ~Thanks Derple
-]]
+--- comments
 ---@param iconID integer
 ---@param spell MQSpell
 ---@param i integer
-function DrawInspectableSpellIcon(iconID, spell, i)
+local function DrawInspectableSpellIcon(iconID, spell, i)
     local cursor_x, cursor_y = ImGui.GetCursorPos()
     local beniColor = IM_COL32(0,20,180,190) -- blue benificial default color
     animSpell:SetTextureCell(iconID or 0)
-    local caster = spell.Caster() or '?' -- the caster of the Spell
+    -- local caster = BUFF(i).Caster() or '?' -- the caster of the Spell
     if not spell.Beneficial() then
         beniColor = IM_COL32(255,0,0,190) --red detrimental
     end
-    if caster == ME.DisplayName() and not spell.Beneficial() then
-        beniColor = IM_COL32(190,190,20,255) -- detrimental cast by me (yellow)
-    end
+    -- if caster == mq.TLO.Me.DisplayName() then
+    --     beniColor = IM_COL32(190,190,20,255) -- detrimental cast by me (yellow)
+    -- end
     ImGui.GetWindowDrawList():AddRectFilled(ImGui.GetCursorScreenPosVec() + 1,
     ImGui.GetCursorScreenPosVec() + textureHeight, beniColor)
     ImGui.SetCursorPos(cursor_x+3, cursor_y+3)
-    if caster == ME.DisplayName() and spell.Beneficial() then
-        ImGui.DrawTextureAnimation(animSpell, textureWidth - 6, textureHeight -6, true)
-        else
+    -- if caster == ME.DisplayName() and spell.Beneficial() then
+    --     ImGui.DrawTextureAnimation(animSpell, textureWidth - 6, textureHeight -6, true)
+    --     else
         ImGui.DrawTextureAnimation(animSpell, textureWidth - 5, textureHeight - 5)
-    end
+    -- end
     ImGui.SetCursorPos(cursor_x+2, cursor_y+2)
     local sName = spell.Name() or '??'
     local sDur = spell.Duration.TotalSeconds() or 0
@@ -99,26 +112,35 @@ function DrawInspectableSpellIcon(iconID, spell, i)
     ImGui.PopID()
 end
 
----@param type string
----@param txt string
-function DrawStatusIcon(iconID, type, txt)
-    animSpell:SetTextureCell(iconID or 0)
-    animItem:SetTextureCell(iconID or 3996)
-    if type == 'item' then
-        ImGui.DrawTextureAnimation(animItem, textureWidth - 11, textureHeight - 11)
-        elseif type == 'pwcs' then
-        local animPWCS = mq.FindTextureAnimation(iconID)
-        animPWCS:SetTextureCell(iconID)
-        ImGui.DrawTextureAnimation(animPWCS, textureWidth - 11, textureHeight - 11)
-        else
-        ImGui.DrawTextureAnimation(animSpell, textureWidth - 11, textureHeight - 11)
+
+---comment
+---@param counter integer -- the counter used for this window to keep track of color changes
+---@param themeName string -- name of the theme to load form table
+---@return integer -- returns the new counter value 
+local function DrawTheme(counter, themeName)
+    -- Push Theme Colors
+    for tID, tData in pairs(theme.Theme) do
+        if tData.Name == themeName then
+            for pID, cData in pairs(theme.Theme[tID].Color) do
+                ImGui.PushStyleColor(pID, ImVec4(cData.Color[1], cData.Color[2], cData.Color[3], cData.Color[4]))
+                counter = counter +1
+            end
+        end
     end
+    return counter
 end
 
 local counter = 0
 local function MyBuffs(count)
     -- Width and height of each texture
     local windowWidth = ImGui.GetWindowContentRegionWidth()
+    if riseT == true then
+        flashAlphaT = flashAlphaT - 5
+        elseif riseT == false then
+        flashAlphaT = flashAlphaT + 5
+    end
+    if flashAlphaT == 128 then riseT = false end
+    if flashAlphaT == 25 then riseT = true end
     if rise == true then
         flashAlpha = flashAlpha + 5
         elseif rise == false then
@@ -130,21 +152,38 @@ local function MyBuffs(count)
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
 
     -------------------------------------------- Buffs Section ---------------------------------
+
+    if ImGui.Button(gIcon) then
+        openConfigGUI = not openConfigGUI
+    end
+    ImGui.SameLine()
     ImGui.SeparatorText('Buffs')
-    ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY *.7), ImGuiChildFlags.Border)
+    if not SplitWin then sizeY = sizeY *0.7 else sizeY = sizeY - 2 end
+    ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
+    ImGui.BeginTable('##MyBuffs'..ME.DisplayName(), 1, bit32.bor(ImGuiTableFlags.NoBordersInBody))
+    ImGui.TableSetupColumn("##txt"..ME.DisplayName(), ImGuiTableColumnFlags.NoHeaderLabel)
+    ImGui.TableNextRow()
+    ImGui.TableSetColumnIndex(0)
     local numBuffs = ME.BuffCount() or 0
     counter = 0
     if ME.BuffCount() > 0 then
         local sName = ' '
         for i = 1, count do
             if counter == numBuffs then break end
+            
             ImGui.BeginGroup()
             local sIcon = BUFF(i).SpellIcon() or 0
             if BUFF(i) ~= nil and BUFF(i).Name() ~= nil then
                 sName = BUFF(i).Name()
                 DrawInspectableSpellIcon(sIcon, BUFF(i), i)
+                --ImGui.Dummy(textureHeight,textureWidth)
                 ImGui.SameLine()
                 local sDur = BUFF(i).Duration.TotalMinutes() or 0
+                local sDurS = BUFF(i).Duration.TotalSeconds() or 0
+                if sDurS < 18 and sDurS > 0 then
+                    local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
+                    ImGui.PushStyleColor(ImGuiCol.Text,flashColor)
+                end
                 if sDur < buffTime then
                     ImGui.Text(' '..(getDuration(i, 'spell', false) or ' '))
                     else
@@ -153,9 +192,12 @@ local function MyBuffs(count)
                 ImGui.SameLine()
                 ImGui.Text(' '..(BUFF(i).Name() or ''))
                 counter = counter + 1
+                if sDurS < 18 and sDurS > 0 then
+                    ImGui.PopStyleColor()
+                end
                 else
                 sName = ''
-                ImGui.Dummy(textureWidth,textureHeight)
+                ImGui.Dummy(textureWidth * 3,textureHeight)
             end
             ImGui.EndGroup()
             if ImGui.IsItemHovered() then
@@ -165,7 +207,7 @@ local function MyBuffs(count)
                         mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i-1)
                     end
                 end
-                if ImGui.IsMouseDragging(0, 15) then
+                if ImGui.IsMouseDoubleClicked(0) then
                     BUFF(i).Remove()
                     if TLO.MacroQuest.BuildName()=='Emu' then
                         mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", i-1)
@@ -179,10 +221,33 @@ local function MyBuffs(count)
                 end
                 ImGui.EndTooltip()
             end
+            ImGui.TableNextRow()
+            ImGui.TableSetColumnIndex(0)
         end
     end
+    ImGui.EndTable()
     ImGui.EndChild()
+    ImGui.PopStyleVar()
+end
 
+local function MySongs()
+    -- Width and height of each texture
+    local windowWidth = ImGui.GetWindowContentRegionWidth()
+    if riseS == true then
+        flashAlphaS = flashAlphaS - 5
+        elseif riseS == false then
+        flashAlphaS = flashAlphaS + 5
+    end
+    if flashAlphaS == 128 then riseS = false end
+    if flashAlphaS == 25 then riseS = true end
+    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+    local sizeX , sizeY = ImGui.GetContentRegionAvail()
+    local tmpSplit = SplitWin
+    tmpSplit = ImGui.Checkbox('Split', tmpSplit)
+    if tmpSplit ~= SplitWin then
+        SplitWin = tmpSplit
+    end
+    ImGui.SameLine()
     ImGui.SeparatorText('Songs')
     sizeX, sizeY = ImGui.GetContentRegionAvail()
     --------- Songs Section -----------------------
@@ -197,6 +262,11 @@ local function MyBuffs(count)
                 DrawInspectableSpellIcon(sIcon, SONG(i), i)
                 ImGui.SameLine()
                 local sngDur = SONG(i).Duration.TotalMinutes() or 0
+                local sngDurS = SONG(i).Duration.TotalSeconds() or 0
+                if sngDurS < 18 and sngDurS > 0 then
+                    local flashColorS = IM_COL32(255, 255, 255, flashAlphaS)
+                    ImGui.PushStyleColor(ImGuiCol.Text,flashColorS)
+                end
                 if sngDur < songTimer then
                     ImGui.Text(' '..(getDuration(i, 'song', false) or ' '))
                     else
@@ -204,6 +274,9 @@ local function MyBuffs(count)
                 end
                 ImGui.SameLine()
                 ImGui.Text(' '..(SONG(i).Name() or ''))
+                if sngDurS < 18 and sngDurS > 0 then
+                    ImGui.PopStyleColor()
+                end
                 else
                 ImGui.Dummy(textureWidth,textureHeight)
             end
@@ -228,33 +301,132 @@ local function MyBuffs(count)
         end
     end
     ImGui.EndChild()
-    ImGui.PopStyleVar()
 end
 
-function GUI_Buffs(open)
+local function GUI_Buffs(open)
     if not ShowGUI then return end
     if TLO.Me.Zoning() then return end
+    ColorCount = 0
     --Rounded corners
     ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 10)
     -- Default window size
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
+    local themeName = theme.LoadTheme or 'notheme'
+    ColorCount = DrawTheme(ColorCount, themeName)
     open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, winFlag)
+    ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
         ImGui.PopStyleVar()
+        if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
+        ImGui.SetWindowFontScale(1)
         ImGui.End()
         return open
     end
+
     MyBuffs(MaxBuffs)
+    if not SplitWin then MySongs() end
+
+    if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
     ImGui.PopStyleVar()
     ImGui.Spacing()
+    ImGui.SetWindowFontScale(1)
     ImGui.End()
     return open
 end
 
+local function GUI_Songs(open)
+    if not SplitWin then return end
+    if TLO.Me.Zoning() then return end
+    ColorCountSongs = 0
+    --Rounded corners
+    ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 10)
+    -- Default window size
+    ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
+    local show = false
+    local themeName = theme.LoadTheme or 'notheme'
+    ColorCountSongs = DrawTheme(ColorCountSongs, themeName)
+    open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, winFlag)
+    ImGui.SetWindowFontScale(ZoomLvl)
+    if not show then
+        ImGui.PopStyleVar()
+        if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
+        ImGui.SetWindowFontScale(1)
+        ImGui.End()
+        return open
+    end
+
+    MySongs()
+    if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
+    ImGui.PopStyleVar()
+    ImGui.Spacing()
+    ImGui.SetWindowFontScale(1)
+    ImGui.End()
+    return open
+end
+
+local function MyBuffConf_GUI(open)
+    if not openConfigGUI then return end
+    ColorCountConf = 0
+    local themeName = theme.LoadTheme or 'notheme'
+    ColorCountConf = DrawTheme(ColorCountConf, themeName)
+    open, openConfigGUI = ImGui.Begin("MyBuffs Conf", open, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoCollapse))
+    ImGui.SetWindowFontScale(ZoomLvl)
+    if not openConfigGUI then
+        openConfigGUI = false
+        open = false
+        if ColorCountConf > 0 then ImGui.PopStyleColor(ColorCountConf) end
+        ImGui.SetWindowFontScale(1)
+        ImGui.End()
+        return open
+    end
+    ImGui.SameLine()
+
+    ImGui.Text("Cur Theme: %s", themeName)
+    -- Combo Box Load Theme
+    if ImGui.BeginCombo("Load Theme##MyBuffs", themeName) then
+        ImGui.SetWindowFontScale(ZoomLvl)
+        for k, data in pairs(theme.Theme) do
+            local isSelected = data.Name == themeName
+            if ImGui.Selectable(data.Name, isSelected) then
+                theme.LoadTheme = data.Name
+                themeName = theme.LoadTheme
+                -- useThemeName = themeName
+            end
+        end
+        ImGui.EndCombo()
+    end
+
+    -- Slider for adjusting zoom level
+    local tmpZoom = ZoomLvl
+    if ZoomLvl then
+        tmpZoom = ImGui.SliderFloat("Zoom Level##MyBuffs", tmpZoom, 0.5, 2.0)
+    end
+    if ZoomLvl ~= tmpZoom then
+        ZoomLvl = tmpZoom
+    end
+
+    local tmpSplit = SplitWin
+    tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
+    if tmpSplit ~= SplitWin then
+        SplitWin = tmpSplit
+    end
+
+    ImGui.SameLine()
+
+    if ImGui.Button('close') then
+        openConfigGUI = false
+    end
+
+    if ColorCountConf > 0 then ImGui.PopStyleColor(ColorCountConf) end
+    ImGui.SetWindowFontScale(1)
+    ImGui.End()
+
+end
+
 local function recheckBuffs()
     local nTime = os.time()
-    if nTime - check > 5 or firstTime then
+    if nTime - check > 1.5 or firstTime then
         local lTarg = mq.TLO.Target.ID() or -1
         mq.cmdf('/target id %s', mq.TLO.Me.ID())
         -- mq.delay(1)
@@ -264,18 +436,27 @@ local function recheckBuffs()
     end
 end
 
-local openGUI = true
-ImGui.Register('GUI_Buffs', function()
-    openGUI = GUI_Buffs(openGUI)
-end)
+local function init()
+-- check for theme file or load defaults from our themes.lua
+    if File_Exists(themeFile) then
+        theme = dofile(themeFile)
+    else 
+        theme = require('themes.lua')
+    end
+
+    mq.imgui.init('GUI_Buffs', GUI_Buffs)
+    mq.imgui.init('GUI_Songs', GUI_Songs)
+    mq.imgui.init('MyBuffConf_GUI', MyBuffConf_GUI)
+end
 
 local function MainLoop()
     while true do
         if TLO.Window('CharacterListWnd').Open() then return false end
-        mq.delay(1)
+        mq.delay(1000)
         if ME.Zoning() then
             ShowGUI = false
-            mq.delay(3000)
+            local flag = not ME.Zoning()
+            mq.delay(9000, function() return not ME.Zoning() end)
             else
             ShowGUI = true
         end
@@ -288,7 +469,9 @@ local function MainLoop()
     end
 end
 
+init()
 printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Version \aw::\ay %s \at Loaded",TLO.Time(), ver)
 printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Right Click will inspect Buff",TLO.Time())
 printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Left Click and Drag will Remove the Buff",TLO.Time())
+recheckBuffs()
 MainLoop()
