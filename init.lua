@@ -427,6 +427,7 @@ local function GUI_Buffs(open)
     end
     ColorCount = DrawTheme(ColorCount, themeName)
     open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
+    ImGui.BeginGroup()
     ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
         ImGui.PopStyleVar()
@@ -462,6 +463,10 @@ local function GUI_Buffs(open)
     ImGui.PopStyleVar()
     ImGui.Spacing()
     ImGui.SetWindowFontScale(1)
+    ImGui.EndGroup()
+    if ImGui.IsItemHovered() then
+        ImGui.SetWindowFocus("MyBuffs##"..ME.DisplayName())
+    end
     ImGui.End()
     return open
 end
