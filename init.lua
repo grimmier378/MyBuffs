@@ -52,6 +52,7 @@ defaults = {
         ShowIcons = true,
         ShowTimer = true,
         ShowText = true,
+        SplitWin = false,
 }
 
 
@@ -125,7 +126,10 @@ local function loadSettings()
     if settings[script].ShowTimer == nil then
         settings[script].ShowTimer = ShowTimer
     end
-
+    if settings[script].SplitWin == nil then
+        settings[script].SplitWin = SplitWin
+    end
+    SplitWin = settings[script].SplitWin
     ShowTimer = settings[script].ShowTimer
     ShowText = settings[script].ShowText
     ShowIcons = settings[script].ShowIcons
@@ -340,12 +344,6 @@ local function MySongs()
     if flashAlphaS == 25 then riseS = true end
     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
-    local tmpSplit = SplitWin
-    tmpSplit = ImGui.Checkbox('Split', tmpSplit)
-    if tmpSplit ~= SplitWin then
-        SplitWin = tmpSplit
-    end
-    ImGui.SameLine()
     ImGui.SeparatorText('Songs')
     sizeX, sizeY = ImGui.GetContentRegionAvail()
     --------- Songs Section -----------------------
@@ -426,7 +424,6 @@ local function GUI_Buffs(open)
     ColorCount = DrawTheme(ColorCount, themeName)
     open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
     ImGui.BeginGroup()
-    ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
         ImGui.PopStyleVar()
         if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
@@ -452,8 +449,21 @@ local function GUI_Buffs(open)
         if ImGui.Button(gIcon..'##MyBuffsg') then
             openConfigGUI = not openConfigGUI
         end
+        local splitIcon = SplitWin and Icons.FA_TOGGLE_ON ..'##MyBuffsSplit' or Icons.FA_TOGGLE_OFF ..'##MyBuffsSplit'
+        if ImGui.Button(splitIcon) then
+            SplitWin = not SplitWin
+            settings = dofile(configFile)
+            settings[script].SplitWin = SplitWin
+            writeSettings(configFile, settings)
+        end
+        if ImGui.IsItemHovered() then
+            ImGui.BeginTooltip()
+            ImGui.Text("Split Songs into Separate Window")
+            ImGui.EndTooltip()
+        end
         ImGui.EndMenuBar()
     end
+    ImGui.SetWindowFontScale(ZoomLvl)
     MyBuffs(MaxBuffs)
     if not SplitWin then MySongs() end
 
