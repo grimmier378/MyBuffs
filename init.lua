@@ -486,6 +486,7 @@ local function GUI_Buffs(open)
     if ImGui.IsWindowHovered() then
         ImGui.SetWindowFocus("MyBuffs##"..ME.DisplayName())
     end
+    ImGui.SetWindowFontScale(1)
     ImGui.End()
     return open
 end
