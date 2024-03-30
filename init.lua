@@ -53,6 +53,8 @@ defaults = {
         ShowTimer = true,
         ShowText = true,
         SplitWin = false,
+        SongTimer = 20, -- number of seconds remaining to trigger showing timer
+        BuffTimer = 5,  -- number of minutes remaining to trigger showing timer
 }
 
 
@@ -129,6 +131,15 @@ local function loadSettings()
     if settings[script].SplitWin == nil then
         settings[script].SplitWin = SplitWin
     end
+    if settings[script].BuffTimer == nil then
+        settings[script].BuffTimer = buffTime
+    end
+    if settings[script].SongTimer == nil then
+        settings[script].SongTimer = songTimer
+    end
+
+    songTimer = settings[script].SongTimer
+    buffTime = settings[script].BuffTimer
     SplitWin = settings[script].SplitWin
     ShowTimer = settings[script].ShowTimer
     ShowText = settings[script].ShowText
@@ -558,6 +569,22 @@ local function MyBuffConf_GUI(open)
     if iconSize ~= tmpSize then
         iconSize = tmpSize
     end
+    local tmpBuffTimer = buffTime
+    if buffTime then
+        tmpBuffTimer = ImGui.SliderInt("Buff Timer (Minutes)##MyBuffs", tmpBuffTimer, 1, 240)
+    end
+    if buffTime ~= tmpBuffTimer then
+        buffTime = tmpBuffTimer
+    end
+    local tmpSongTimer = songTimer
+    if songTimer then
+        tmpSongTimer = ImGui.SliderInt("Song Timer (Seconds)##MyBuffs", tmpSongTimer, 1, 240)
+    end
+    if songTimer ~= tmpSongTimer then
+        songTimer = tmpSongTimer
+    end
+
+    --------------------- input boxes --------------------
 
     ---------- Checkboxes ---------------------
 
@@ -590,11 +617,14 @@ local function MyBuffConf_GUI(open)
         ShowTimer = tmpShowTimer
     end
 
+
     ImGui.SameLine()
 
     if ImGui.Button('close') then
         openConfigGUI = false
         settings = dofile(configFile)
+        settings[script].SongTimer = songTimer
+        settings[script].BuffTimer = buffTime
         settings[script].IconSize = iconSize
         settings[script].Scale = ZoomLvl
         settings[script].LoadTheme = themeName
