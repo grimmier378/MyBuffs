@@ -416,7 +416,9 @@ local function MySongs()
             end
         end
     end
+    
     ImGui.EndChild()
+    ImGui.PopStyleVar()
 end
 
 local function GUI_Buffs(open)
