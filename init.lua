@@ -40,7 +40,7 @@ local themeFile = mq.configDir .. '/MyThemeZ.lua'
 local configFile = mq.configDir .. '/MyUI_Configs.lua'
 local ZoomLvl = 1.0
 local gIcon = Icons.MD_SETTINGS
-local locked, ShowIcons, ShowTimer, ShowText = false, true, true, true
+local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, true, true
 local themeName = 'Default'
 local script = 'MyBuffs'
 local defaults, settings, temp = {}, {}, {}
@@ -52,6 +52,7 @@ defaults = {
         ShowIcons = true,
         ShowTimer = true,
         ShowText = true,
+        ShowScroll = true,
         SplitWin = false,
         SongTimer = 20, -- number of seconds remaining to trigger showing timer
         BuffTimer = 5,  -- number of minutes remaining to trigger showing timer
@@ -137,7 +138,11 @@ local function loadSettings()
     if settings[script].SongTimer == nil then
         settings[script].SongTimer = songTimer
     end
+    if settings[script].ShowScroll == nil then
+        settings[script].ShowScroll = ShowScroll
+    end
 
+    ShowScroll = settings[script].ShowScroll
     songTimer = settings[script].SongTimer
     buffTime = settings[script].BuffTimer
     SplitWin = settings[script].SplitWin
@@ -259,7 +264,11 @@ local function MyBuffs(count)
     -------------------------------------------- Buffs Section ---------------------------------
     ImGui.SeparatorText('Buffs')
     if not SplitWin then sizeY = sizeY *0.7 else sizeY = sizeY - 2 end
-    ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
+    if not ShowScroll then
+        ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+    else
+        ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
+    end
     ImGui.BeginTable('##MyBuffs'..ME.DisplayName(), 1, bit32.bor(ImGuiTableFlags.NoBordersInBody))
     ImGui.TableSetupColumn("##txt"..ME.DisplayName(), ImGuiTableColumnFlags.NoHeaderLabel)
     ImGui.TableNextRow()
@@ -358,7 +367,11 @@ local function MySongs()
     ImGui.SeparatorText('Songs')
     sizeX, sizeY = ImGui.GetContentRegionAvail()
     --------- Songs Section -----------------------
-    ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border)
+    if ShowScroll then
+        ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border)
+    else
+        ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+    end
     if ME.CountSongs() > 0 then
         local sName = '?'
         for i = 1, ME.CountSongs() do
@@ -432,7 +445,7 @@ local function GUI_Buffs(open)
     local show = false
     local flags = winFlag
     if locked then
-        flags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoMove, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
+        flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
     end
     ColorCount = DrawTheme(ColorCount, themeName)
     open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
@@ -497,13 +510,20 @@ local function GUI_Songs(open)
     if not SplitWin then return end
     if TLO.Me.Zoning() then return end
     ColorCountSongs = 0
+    local flags = winFlag
+    if locked then
+        flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
+    end
+    if not ShowScroll then
+        flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
+    end
     --Rounded corners
     ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 10)
     -- Default window size
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
     ColorCountSongs = DrawTheme(ColorCountSongs, themeName)
-    open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, winFlag)
+    open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, flags)
     ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
         ImGui.PopStyleVar()
@@ -563,7 +583,7 @@ local function MyBuffConf_GUI(open)
     if ZoomLvl ~= tmpZoom then
         ZoomLvl = tmpZoom
     end
-    
+
     -- Slider for adjusting IconSize
     local tmpSize = iconSize
     if iconSize then
@@ -572,17 +592,21 @@ local function MyBuffConf_GUI(open)
     if iconSize ~= tmpSize then
         iconSize = tmpSize
     end
+    ---- timer threshold adjustment sliders
     local tmpBuffTimer = buffTime
     if buffTime then
         tmpBuffTimer = ImGui.SliderInt("Buff Timer (Minutes)##MyBuffs", tmpBuffTimer, 1, 240)
     end
+
     if buffTime ~= tmpBuffTimer then
         buffTime = tmpBuffTimer
     end
+
     local tmpSongTimer = songTimer
     if songTimer then
         tmpSongTimer = ImGui.SliderInt("Song Timer (Seconds)##MyBuffs", tmpSongTimer, 1, 240)
     end
+
     if songTimer ~= tmpSongTimer then
         songTimer = tmpSongTimer
     end
@@ -590,14 +614,6 @@ local function MyBuffConf_GUI(open)
     --------------------- input boxes --------------------
 
     ---------- Checkboxes ---------------------
-
-    local tmpSplit = SplitWin
-    tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
-    if tmpSplit ~= SplitWin then
-        SplitWin = tmpSplit
-    end
-
-    ImGui.SameLine()
 
     local tmpShowText = ShowText
     tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
@@ -620,12 +636,24 @@ local function MyBuffConf_GUI(open)
         ShowTimer = tmpShowTimer
     end
 
+    local tmpScroll = ShowScroll
+    tmpScroll = ImGui.Checkbox('Show Scrollbar', tmpScroll)
+    if tmpScroll ~= ShowScroll then
+        ShowScroll = tmpScroll
+    end
+    ImGui.SameLine()
 
+    local tmpSplit = SplitWin
+    tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
+    if tmpSplit ~= SplitWin then
+        SplitWin = tmpSplit
+    end
     ImGui.SameLine()
 
     if ImGui.Button('close') then
         openConfigGUI = false
         settings = dofile(configFile)
+        settings[script].ShowScroll = ShowScroll
         settings[script].SongTimer = songTimer
         settings[script].BuffTimer = buffTime
         settings[script].IconSize = iconSize
