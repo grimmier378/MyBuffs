@@ -79,7 +79,7 @@ local function loadTheme()
     if File_Exists(themeFile) then
         theme = dofile(themeFile)
     else
-        theme = require('themes.lua')
+        theme = require('themes')
     end
     themeName = theme.LoadTheme or 'notheme'
 end
