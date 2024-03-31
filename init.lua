@@ -265,13 +265,12 @@ local function MyBuffs(count)
     
     -------------------------------------------- Buffs Section ---------------------------------
     ImGui.SeparatorText('Buffs')
-    if not SplitWin then sizeY = sizeY *0.7 end
-    local childFlags = bit32.bor(ImGuiChildFlags.Border)
+    if not SplitWin then sizeY = sizeY *0.7 else sizeY = sizeY * 0.9 end
     if not ShowScroll then
-        childFlags = bit32.bor(ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
-        
+        ImGui.BeginChild("MyBuffs", sizeX, sizeY, ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+        else
+        ImGui.BeginChild("MyBuffs", sizeX, sizeY, ImGuiChildFlags.Border)
     end
-    ImGui.BeginChild("MyBuffs", sizeX, sizeY *0.92, childFlags)
 
     local numBuffs = ME.BuffCount() or 0
     counter = 0
