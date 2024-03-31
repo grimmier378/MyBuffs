@@ -45,6 +45,7 @@ local themeName = 'Default'
 local script = 'MyBuffs'
 local lastBuffCount, lastSongCount = -1, -1
 local defaults, settings, temp = {}, {}, {}
+local debuffed, stateChanged = false, false
 defaults = {
     Scale = 1.0,
     LoadTheme = 'Default',
@@ -264,12 +265,13 @@ local function MyBuffs(count)
     
     -------------------------------------------- Buffs Section ---------------------------------
     ImGui.SeparatorText('Buffs')
-    if not SplitWin then sizeY = sizeY *0.7 else sizeY = sizeY - 2 end
+    if not SplitWin then sizeY = sizeY *0.7 end
+    local childFlags = bit32.bor(ImGuiChildFlags.Border)
     if not ShowScroll then
-        ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
-        else
-        ImGui.BeginChild("MyBuffs", ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
+        childFlags = bit32.bor(ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+        
     end
+    ImGui.BeginChild("MyBuffs", sizeX, sizeY *0.92, childFlags)
 
     local numBuffs = ME.BuffCount() or 0
     counter = 0
@@ -278,9 +280,10 @@ local function MyBuffs(count)
         for i = 1, count do
             if counter == numBuffs then break end
 
-            ImGui.BeginGroup()
+            
             local sIcon = BUFF(i).SpellIcon() or 0
             if BUFF(i) ~= nil and BUFF(i).Name() ~= nil then
+                ImGui.BeginGroup()
                 sName = BUFF(i).Name()
                 ----- Show Icons ----
                 if ShowIcons then
@@ -309,31 +312,31 @@ local function MyBuffs(count)
                 if sDurS < 18 and sDurS > 0 then
                     ImGui.PopStyleColor()
                 end
+                ImGui.EndGroup()
+                if ImGui.IsItemHovered() then
+                    if (ImGui.IsMouseReleased(1)) then
+                        BUFF(i).Inspect()
+                        if TLO.MacroQuest.BuildName()=='Emu' then
+                            mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i-1)
+                        end
+                    end
+                    if ImGui.IsMouseDoubleClicked(0) then
+                        BUFF(i).Remove()
+                        if TLO.MacroQuest.BuildName()=='Emu' then
+                            mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", i-1)
+                        end
+                    end
+                    ImGui.BeginTooltip()
+                    if sName ~= '' then
+                        ImGui.Text(sName .. '\n' .. getDuration(i, 'spell', true))
+                        else
+                        ImGui.Text('none')
+                    end
+                    ImGui.EndTooltip()
+                end
                 else
                 sName = ''
                 ImGui.Dummy(iconSize,iconSize)
-            end
-            ImGui.EndGroup()
-            if ImGui.IsItemHovered() then
-                if (ImGui.IsMouseReleased(1)) then
-                    BUFF(i).Inspect()
-                    if TLO.MacroQuest.BuildName()=='Emu' then
-                        mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i-1)
-                    end
-                end
-                if ImGui.IsMouseDoubleClicked(0) then
-                    BUFF(i).Remove()
-                    if TLO.MacroQuest.BuildName()=='Emu' then
-                        mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", i-1)
-                    end
-                end
-                ImGui.BeginTooltip()
-                if sName ~= '' then
-                    ImGui.Text(sName .. '\n' .. getDuration(i, 'spell', true))
-                    else
-                    ImGui.Dummy(iconSize,iconSize)
-                end
-                ImGui.EndTooltip()
             end
 
         end
@@ -542,9 +545,10 @@ local function MyBuffConf_GUI(open)
         return open
     end
     ImGui.SameLine()
-    
+    ImGui.SeparatorText('Theme')
     ImGui.Text("Cur Theme: %s", themeName)
     -- Combo Box Load Theme
+    
     if ImGui.BeginCombo("Load Theme##MyBuffs", themeName) then
         ImGui.SetWindowFontScale(ZoomLvl)
         for k, data in pairs(theme.Theme) do
@@ -559,11 +563,11 @@ local function MyBuffConf_GUI(open)
     end
     
     --------------------- Sliders ----------------------
-    
+    ImGui.SeparatorText('Scaling')
     -- Slider for adjusting zoom level
     local tmpZoom = ZoomLvl
     if ZoomLvl then
-        tmpZoom = ImGui.SliderFloat("Zoom Level##MyBuffs", tmpZoom, 0.5, 2.0)
+        tmpZoom = ImGui.SliderFloat("Text Scale##MyBuffs", tmpZoom, 0.5, 2.0)
     end
     if ZoomLvl ~= tmpZoom then
         ZoomLvl = tmpZoom
@@ -577,6 +581,7 @@ local function MyBuffConf_GUI(open)
     if iconSize ~= tmpSize then
         iconSize = tmpSize
     end
+    ImGui.SeparatorText('Timers')
     ---- timer threshold adjustment sliders
     local tmpBuffTimer = buffTime
     if buffTime then
@@ -599,7 +604,7 @@ local function MyBuffConf_GUI(open)
     --------------------- input boxes --------------------
     
     ---------- Checkboxes ---------------------
-    
+    ImGui.SeparatorText('Toggles')
     local tmpShowText = ShowText
     tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
     if tmpShowText ~= ShowText then
@@ -633,9 +638,10 @@ local function MyBuffConf_GUI(open)
     if tmpSplit ~= SplitWin then
         SplitWin = tmpSplit
     end
-    ImGui.SameLine()
     
-    if ImGui.Button('close') then
+    ImGui.SeparatorText('Save and Close')
+
+    if ImGui.Button('Save and Close') then
         openConfigGUI = false
         settings = dofile(configFile)
         settings[script].ShowScroll = ShowScroll
@@ -656,12 +662,25 @@ local function MyBuffConf_GUI(open)
     
 end
 
+local function checkDebuff()
+    local tmpDebuffed = debuffed
+    if ME.Poisoned() or ME.Diseased() or ME.Dotted() or ME.Cursed() or ME.Corrupted() then
+        tmpDebuffed = true
+    end
+        if tmpDebuffed ~= debuffed then
+            debuffed = tmpDebuffed
+            stateChanged = true
+        else
+            stateChanged = false
+        end
+        return stateChanged
+end
+
 local function recheckBuffs()
     local nTime = os.time()
     local bCount = mq.TLO.Me.BuffCount() or 0
-    local sCount = mq.TLO.Me.CountSongs() or 0
     -- if bCount > 0 or sCount > 0 then
-        if (nTime - check > 12 or firstTime) or (bCount ~= lastBuffCount or sCount ~= lastSongCount) then
+        if (nTime - check > 60 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
             local lTarg = mq.TLO.Target.ID() or -1
             mq.cmdf('/target id %s', mq.TLO.Me.ID())
             -- mq.delay(1)
@@ -673,7 +692,6 @@ local function recheckBuffs()
             check = os.time()
             if firstTime then firstTime = false end
             lastBuffCount = bCount
-            lastSongCount = sCount
         end
     -- end
 
