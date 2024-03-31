@@ -43,6 +43,7 @@ local gIcon = Icons.MD_SETTINGS
 local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, true, true
 local themeName = 'Default'
 local script = 'MyBuffs'
+local lastBuffCount, lastSongCount = -1, -1
 local defaults, settings, temp = {}, {}, {}
 defaults = {
     Scale = 1.0,
@@ -303,11 +304,6 @@ local function MyBuffs(count)
                 end
                 ImGui.SameLine()
                 
-                if sDurS < 18 and sDurS > 0 then
-                    local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
-                    ImGui.PushStyleColor(ImGuiCol.Text,flashColor)
-                end
-                
                 if ShowText then ImGui.Text(' '..(BUFF(i).Name() or '')) end
                 counter = counter + 1
                 if sDurS < 18 and sDurS > 0 then
@@ -349,13 +345,7 @@ end
 local function MySongs()
     -- Width and height of each texture
     local windowWidth = ImGui.GetWindowContentRegionWidth()
-    if riseS == true then
-        flashAlphaS = flashAlphaS - 5
-        elseif riseS == false then
-        flashAlphaS = flashAlphaS + 5
-    end
-    if flashAlphaS == 128 then riseS = false end
-    if flashAlphaS == 25 then riseS = true end
+
     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
     ImGui.SeparatorText('Songs')
@@ -668,14 +658,25 @@ end
 
 local function recheckBuffs()
     local nTime = os.time()
-    if nTime - check > 6 or firstTime then
-        local lTarg = mq.TLO.Target.ID() or -1
-        mq.cmdf('/target id %s', mq.TLO.Me.ID())
-        -- mq.delay(1)
-        if lTarg ~= -1  then mq.cmdf('/target id %s', lTarg) end
-        check = os.time()
-        if firstTime then firstTime = false end
-    end
+    local bCount = mq.TLO.Me.BuffCount() or 0
+    local sCount = mq.TLO.Me.CountSongs() or 0
+    -- if bCount > 0 or sCount > 0 then
+        if (nTime - check > 12 or firstTime) or (bCount ~= lastBuffCount or sCount ~= lastSongCount) then
+            local lTarg = mq.TLO.Target.ID() or -1
+            mq.cmdf('/target id %s', mq.TLO.Me.ID())
+            -- mq.delay(1)
+            if lTarg ~= -1 and lTarg ~= mq.TLO.Me.ID() then
+                mq.cmdf('/target id %s', lTarg)
+            else
+                mq.cmdf('/target clear')
+            end
+            check = os.time()
+            if firstTime then firstTime = false end
+            lastBuffCount = bCount
+            lastSongCount = sCount
+        end
+    -- end
+
 end
 
 local function init()
@@ -696,6 +697,8 @@ local function MainLoop()
             local flag = not ME.Zoning()
             mq.delay(9000, function() return not ME.Zoning() end)
             firstTime = true
+            lastBuffCount = -1
+            lastSongCount = -1
             else
             ShowGUI = true
         end
