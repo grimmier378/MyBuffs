@@ -34,7 +34,7 @@ local check = os.time()
 local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
 local theme = {}
-local ColorCount, ColorCountSongs, ColorCountConf = 0, 0, 0
+local ColorCount, ColorCountSongs, ColorCountConf, StyleCount, StyleCountSongs, StyleCountConf = 0, 0, 0, 0, 0, 0
 local openConfigGUI = false
 local themeFile = mq.configDir .. '/MyThemeZ.lua'
 local configFile = mq.configDir .. '/MyUI_Configs.lua'
@@ -224,22 +224,35 @@ local function DrawInspectableSpellIcon(iconID, spell, i)
     ImGui.PopID()
 end
 
-
 ---comment
----@param counter integer -- the counter used for this window to keep track of color changes
 ---@param themeName string -- name of the theme to load form table
----@return integer -- returns the new counter value
-local function DrawTheme(counter, themeName)
-    -- Push Theme Colors
+---@return integer, integer -- returns the new counter values 
+local function DrawTheme(themeName)
+    local StyleCounter = 0
+    local ColorCounter = 0
     for tID, tData in pairs(theme.Theme) do
         if tData.Name == themeName then
             for pID, cData in pairs(theme.Theme[tID].Color) do
                 ImGui.PushStyleColor(pID, ImVec4(cData.Color[1], cData.Color[2], cData.Color[3], cData.Color[4]))
-                counter = counter +1
+                ColorCounter = ColorCounter + 1
+            end
+            if tData['Style'] ~= nil then
+                if next(tData['Style']) ~= nil then
+                    
+                    for sID, sData in pairs (theme.Theme[tID].Style) do
+                        if sData.Size ~= nil then
+                            ImGui.PushStyleVar(sID, sData.Size)
+                            StyleCounter = StyleCounter + 1
+                            elseif sData.X ~= nil then
+                            ImGui.PushStyleVar(sID, sData.X, sData.Y)
+                            StyleCounter = StyleCounter + 1
+                        end
+                    end
+                end
             end
         end
     end
-    return counter
+    return ColorCounter, StyleCounter
 end
 
 local counter = 0
@@ -278,8 +291,6 @@ local function MyBuffs(count)
         local sName = ' '
         for i = 1, count do
             if counter == numBuffs then break end
-
-            
             local sIcon = BUFF(i).SpellIcon() or 0
             if BUFF(i) ~= nil and BUFF(i).Name() ~= nil then
                 ImGui.BeginGroup()
@@ -305,13 +316,13 @@ local function MyBuffs(count)
                     ImGui.Text(' ')
                 end
                 ImGui.SameLine()
-                
                 if ShowText then ImGui.Text(' '..(BUFF(i).Name() or '')) end
                 counter = counter + 1
                 if sDurS < 18 and sDurS > 0 then
                     ImGui.PopStyleColor()
                 end
                 ImGui.EndGroup()
+
                 if ImGui.IsItemHovered() then
                     if (ImGui.IsMouseReleased(1)) then
                         BUFF(i).Inspect()
@@ -333,6 +344,7 @@ local function MyBuffs(count)
                     end
                     ImGui.EndTooltip()
                 end
+
                 else
                 sName = ''
                 ImGui.Dummy(iconSize,iconSize)
@@ -424,8 +436,7 @@ local function GUI_Buffs(open)
     if not ShowGUI then return end
     if TLO.Me.Zoning() then return end
     ColorCount = 0
-    --Rounded corners
-    ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 10)
+    StyleCount = 0
     -- Default window size
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
@@ -433,11 +444,12 @@ local function GUI_Buffs(open)
     if locked then
         flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
     end
-    ColorCount = DrawTheme(ColorCount, themeName)
+    ColorCount, StyleCount = DrawTheme(themeName)
     open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
     
     if not show then
         ImGui.PopStyleVar()
+        if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
         if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
         ImGui.SetWindowFontScale(1)
         ImGui.End()
@@ -479,9 +491,9 @@ local function GUI_Buffs(open)
     ImGui.SetWindowFontScale(ZoomLvl)
     MyBuffs(MaxBuffs)
     if not SplitWin then MySongs() end
-    
+    if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
     if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
-    ImGui.PopStyleVar()
+
     ImGui.Spacing()
     ImGui.SetWindowFontScale(1)
     -- ImGui.EndGroup()
@@ -497,6 +509,7 @@ local function GUI_Songs(open)
     if not SplitWin then return end
     if TLO.Me.Zoning() then return end
     ColorCountSongs = 0
+    StyleCountSongs = 0
     local flags = winFlag
     if locked then
         flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
@@ -504,16 +517,15 @@ local function GUI_Songs(open)
     if not ShowScroll then
         flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
     end
-    --Rounded corners
-    ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 10)
     -- Default window size
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
-    ColorCountSongs = DrawTheme(ColorCountSongs, themeName)
+    ColorCountSongs, StyleCountSongs = DrawTheme(themeName)
     open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, flags)
     ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
         ImGui.PopStyleVar()
+        if StyleCountSongs > 0 then ImGui.PopStyleVar(StyleCountSongs) end
         if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
         ImGui.SetWindowFontScale(1)
         ImGui.End()
@@ -521,8 +533,8 @@ local function GUI_Songs(open)
     end
     
     MySongs()
+    if StyleCountSongs > 0 then ImGui.PopStyleVar(StyleCountSongs) end
     if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
-    ImGui.PopStyleVar()
     ImGui.Spacing()
     ImGui.SetWindowFontScale(1)
     ImGui.End()
@@ -532,12 +544,14 @@ end
 local function MyBuffConf_GUI(open)
     if not openConfigGUI then return end
     ColorCountConf = 0
-    ColorCountConf = DrawTheme(ColorCountConf, themeName)
+    StyleCountConf = 0
+    ColorCountConf, StyleCountConf = DrawTheme(themeName)
     open, openConfigGUI = ImGui.Begin("MyBuffs Conf", open, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoCollapse))
     ImGui.SetWindowFontScale(ZoomLvl)
     if not openConfigGUI then
         openConfigGUI = false
         open = false
+        if StyleCountConf > 0 then ImGui.PopStyleVar(StyleCountConf) end
         if ColorCountConf > 0 then ImGui.PopStyleColor(ColorCountConf) end
         ImGui.SetWindowFontScale(1)
         ImGui.End()
@@ -654,7 +668,7 @@ local function MyBuffConf_GUI(open)
         settings[script].ShowTimer = ShowTimer
         writeSettings(configFile,settings)
     end
-    
+    if StyleCountConf > 0 then ImGui.PopStyleVar(StyleCountConf) end
     if ColorCountConf > 0 then ImGui.PopStyleColor(ColorCountConf) end
     ImGui.SetWindowFontScale(1)
     ImGui.End()
@@ -679,10 +693,10 @@ local function recheckBuffs()
     local nTime = os.time()
     local bCount = mq.TLO.Me.BuffCount() or 0
     -- if bCount > 0 or sCount > 0 then
-        if (nTime - check > 60 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
+        if (nTime - check > 120 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
             local lTarg = mq.TLO.Target.ID() or -1
             mq.cmdf('/target id %s', mq.TLO.Me.ID())
-            -- mq.delay(1)
+            mq.delay(1)
             if lTarg ~= -1 and lTarg ~= mq.TLO.Me.ID() then
                 mq.cmdf('/target id %s', lTarg)
             else
@@ -715,7 +729,6 @@ local function MainLoop()
             mq.delay(9000, function() return not ME.Zoning() end)
             firstTime = true
             lastBuffCount = -1
-            lastSongCount = -1
             else
             ShowGUI = true
         end
@@ -729,8 +742,8 @@ local function MainLoop()
 end
 
 init()
-printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Version \aw::\ay %s \at Loaded",TLO.Time(), ver)
+printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Loaded",TLO.Time())
 printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Right Click will inspect Buff",TLO.Time())
-printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Left Click and Drag will Remove the Buff",TLO.Time())
+printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Double Left Click will Remove the Buff",TLO.Time())
 recheckBuffs()
 MainLoop()
