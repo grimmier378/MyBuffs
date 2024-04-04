@@ -574,7 +574,10 @@ local function MyBuffConf_GUI(open)
         end
         ImGui.EndCombo()
     end
-    
+
+    if ImGui.Button('Reload Theme File') then
+        loadTheme()
+    end
     --------------------- Sliders ----------------------
     ImGui.SeparatorText('Scaling')
     -- Slider for adjusting zoom level
