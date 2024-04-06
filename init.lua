@@ -69,7 +69,6 @@ local function File_Exists(name)
     if f~=nil then io.close(f) return true else return false end
 end
 
-
 ---comment Writes settings from the settings table passed to the setting file (full path required)
 -- Uses mq.pickle to serialize the table and write to file
 ---@param file string -- File Name and path
@@ -448,19 +447,18 @@ local function GUI_Buffs(open)
     open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
     
     if not show then
-        ImGui.PopStyleVar()
         if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
         if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
         ImGui.SetWindowFontScale(1)
         ImGui.End()
         return open
     end
-    -- ImGui.BeginGroup()
+
     if ImGui.BeginMenuBar() then
         local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
         Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
         if ImGui.Button(lockedIcon) then
-            --ImGuiWindowFlags.NoMove
+
             locked = not locked
             settings = dofile(configFile)
             settings[script].locked = locked
@@ -491,16 +489,13 @@ local function GUI_Buffs(open)
     ImGui.SetWindowFontScale(ZoomLvl)
     MyBuffs(MaxBuffs)
     if not SplitWin then MySongs() end
+
     if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
     if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
 
     ImGui.Spacing()
     ImGui.SetWindowFontScale(1)
-    -- ImGui.EndGroup()
-    if ImGui.IsWindowHovered() then
-        ImGui.SetWindowFocus("MyBuffs##"..ME.DisplayName())
-    end
-    ImGui.SetWindowFontScale(1)
+
     ImGui.End()
     return open
 end
@@ -524,7 +519,6 @@ local function GUI_Songs(open)
     open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, flags)
     ImGui.SetWindowFontScale(ZoomLvl)
     if not show then
-        ImGui.PopStyleVar()
         if StyleCountSongs > 0 then ImGui.PopStyleVar(StyleCountSongs) end
         if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
         ImGui.SetWindowFontScale(1)
@@ -533,6 +527,7 @@ local function GUI_Songs(open)
     end
     
     MySongs()
+    
     if StyleCountSongs > 0 then ImGui.PopStyleVar(StyleCountSongs) end
     if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
     ImGui.Spacing()
