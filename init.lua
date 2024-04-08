@@ -29,7 +29,6 @@ local ShowGUI = true
 local SplitWin = false
 local openGUI = true
 local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer.
-local ver = "v0.12"
 local check = os.time()
 local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
@@ -44,7 +43,7 @@ local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, tr
 local themeName = 'Default'
 local script = 'MyBuffs'
 local lastBuffCount, lastSongCount = -1, -1
-local defaults, settings, temp = {}, {}, {}
+local defaults, settings, timerColor = {}, {}, {}
 local debuffed, stateChanged = false, false
 defaults = {
     Scale = 1.0,
@@ -58,6 +57,7 @@ defaults = {
     SplitWin = false,
     SongTimer = 20, -- number of seconds remaining to trigger showing timer
     BuffTimer = 5,  -- number of minutes remaining to trigger showing timer
+    TimerColor = {0,0,0,1}
 }
 
 
@@ -93,12 +93,12 @@ local function loadSettings()
         else
         
         -- Load settings from the Lua config file
-        temp = {}
+        timerColor = {}
         settings = dofile(configFile)
         if not settings[script] then
             settings[script] = {}
         settings[script] = defaults end
-        temp = settings[script]
+        timerColor = settings[script]
     end
     
     loadTheme()
@@ -136,6 +136,10 @@ local function loadSettings()
     if settings[script].BuffTimer == nil then
         settings[script].BuffTimer = buffTime
     end
+    if not settings[script].TimerColor then
+        settings[script].TimerColor = {}
+        settings[script].TimerColor = {1,1,1,1}
+    end
     if settings[script].SongTimer == nil then
         settings[script].SongTimer = songTimer
     end
@@ -143,6 +147,7 @@ local function loadSettings()
         settings[script].ShowScroll = ShowScroll
     end
     
+    timerColor = settings[script].TimerColor
     ShowScroll = settings[script].ShowScroll
     songTimer = settings[script].SongTimer
     buffTime = settings[script].BuffTimer
@@ -156,8 +161,6 @@ local function loadSettings()
     themeName = settings[script].LoadTheme
     
     writeSettings(configFile, settings)
-    
-    temp = settings[script]
 end
 
 --- comments Gets the duration of a spell or song and returns the duration in HH:MM:SS format
@@ -237,7 +240,6 @@ local function DrawTheme(themeName)
             end
             if tData['Style'] ~= nil then
                 if next(tData['Style']) ~= nil then
-                    
                     for sID, sData in pairs (theme.Theme[tID].Style) do
                         if sData.Size ~= nil then
                             ImGui.PushStyleVar(sID, sData.Size)
@@ -304,22 +306,25 @@ local function MyBuffs(count)
                 local sDurS = BUFF(i).Duration.TotalSeconds() or 0
                 
                 ---- Show Timer ----
-                
-                if sDurS < 18 and sDurS > 0 then
-                    local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
-                    ImGui.PushStyleColor(ImGuiCol.Text,flashColor)
+                ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
+                if sDurS < 18 and sDurS > 0 then     
+                    -- if timerColor then flashColor = IM_COL32(timerColor[1] * 255, timerColor[2] * 255, timerColor[3] * 255, flashAlphaT) end
+                    ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],flashAlphaT)
                 end
                 if sDur < buffTime then
                     if ShowTimer then ImGui.Text(' '..(getDuration(i, 'spell', false) or ' ')) end
                     else
                     ImGui.Text(' ')
                 end
+                ImGui.PopStyleColor()
+                if sDurS < 18 and sDurS > 0 then     
+                    ImGui.PopStyleColor()
+                end
+                ---- Show Text ----
                 ImGui.SameLine()
                 if ShowText then ImGui.Text(' '..(BUFF(i).Name() or '')) end
                 counter = counter + 1
-                if sDurS < 18 and sDurS > 0 then
-                    ImGui.PopStyleColor()
-                end
                 ImGui.EndGroup()
 
                 if ImGui.IsItemHovered() then
@@ -348,7 +353,6 @@ local function MyBuffs(count)
                 sName = ''
                 ImGui.Dummy(iconSize,iconSize)
             end
-
         end
     end
     ImGui.EndChild()
@@ -381,28 +385,28 @@ local function MySongs()
                     DrawInspectableSpellIcon(sIcon, SONG(i), i)
                     ImGui.SameLine()
                 end
-                
-                ------------ Show Text -------------------
-                
-                local sngDur = SONG(i).Duration.TotalMinutes() or 0
+
+                ----------- Show Timers -------------------
                 local sngDurS = SONG(i).Duration.TotalSeconds() or 0
+                ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
                 if sngDurS < 18 and sngDurS > 0 then
                     local flashColorS = IM_COL32(255, 255, 255, flashAlphaS)
-                    ImGui.PushStyleColor(ImGuiCol.Text,flashColorS)
+                    ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],flashAlphaS)
                 end
-                ----------- Show Timers -------------------
-                
+
                 if sngDurS < songTimer then
                     if ShowTimer then ImGui.Text(' '..(getDuration(i, 'song', false) or ' ')) end
                     else
                     ImGui.Text(' ')
                 end
-                ImGui.SameLine()
-                
-                if ShowText then ImGui.Text(' '..(SONG(i).Name() or '')) end
+                ImGui.PopStyleColor()
                 if sngDurS < 18 and sngDurS > 0 then
                     ImGui.PopStyleColor()
                 end
+                ImGui.SameLine()
+                
+                ------------ Show Text -------------------
+                if ShowText then ImGui.Text(' '..(SONG(i).Name() or '')) end
                 else
                 ImGui.Dummy(iconSize,iconSize)
             end
@@ -613,7 +617,8 @@ local function MyBuffConf_GUI(open)
     if songTimer ~= tmpSongTimer then
         songTimer = tmpSongTimer
     end
-    
+ 
+    timerColor = ImGui.ColorPicker4('Timer Color', timerColor)
     --------------------- input boxes --------------------
     
     ---------- Checkboxes ---------------------
@@ -657,6 +662,7 @@ local function MyBuffConf_GUI(open)
     if ImGui.Button('Save and Close') then
         openConfigGUI = false
         settings = dofile(configFile)
+        settings[script].TimerColor = timerColor
         settings[script].ShowScroll = ShowScroll
         settings[script].SongTimer = songTimer
         settings[script].BuffTimer = buffTime
