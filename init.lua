@@ -455,6 +455,7 @@ local function GUI_Buffs(open)
     end
 
     if ImGui.BeginMenuBar() then
+        if ZoomLvl > 1.25 then ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,7) end
         local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
         Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
         if ImGui.Button(lockedIcon) then
@@ -486,11 +487,12 @@ local function GUI_Buffs(open)
         end
         ImGui.EndMenuBar()
     end
+    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,3)
     ImGui.SetWindowFontScale(ZoomLvl)
     MyBuffs(MaxBuffs)
     if not SplitWin then MySongs() end
 
-    if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
+    if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) else ImGui.PopStyleVar(1) end
     if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
 
     ImGui.Spacing()
