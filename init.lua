@@ -10,41 +10,33 @@ local mq = require('mq')
 ---@type ImGui
 local ImGui = require('ImGui')
 local Icons = require('mq.ICONS')
---local COLOR = require('colors.colors')
+
 -- set variables
 local animSpell = mq.FindTextureAnimation('A_SpellIcons')
-local animItem = mq.FindTextureAnimation('A_DragItem')
 local TLO = mq.TLO
 local ME = TLO.Me
 local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
 local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
-local pulse = true
+local firstTime = true
 local iconSize = 24
-local flashAlpha = 1
-local flashAlphaT = 255
-local flashAlphaS = 255
-local rise, riseS, riseT, riseTs = true, true, true, true
-local ShowGUI = true
-local SplitWin = false
-local openGUI = true
+local flashAlpha, flashAlphaT = 1, 255
+local rise, riseT = true, true
+local ShowGUI, openGUI, SplitWin, openConfigGUI = true, true, false, false
+local debuffed, stateChanged = false, false
+local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, true, true
 local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer.
 local check = os.time()
-local firstTime = true
 local MaxBuffs = ME.MaxBuffSlots() or 0 --Max Buff Slots
-local theme = {}
 local ColorCount, ColorCountSongs, ColorCountConf, StyleCount, StyleCountSongs, StyleCountConf = 0, 0, 0, 0, 0, 0
-local openConfigGUI = false
 local themeFile = mq.configDir .. '/MyThemeZ.lua'
 local configFile = mq.configDir .. '/MyUI_Configs.lua'
-local ZoomLvl = 1.0
+local Scale = 1.0
 local gIcon = Icons.MD_SETTINGS
-local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, true, true
 local themeName = 'Default'
 local script = 'MyBuffs'
-local lastBuffCount, lastSongCount = -1, -1
-local defaults, settings, timerColor = {}, {}, {}
-local debuffed, stateChanged = false, false
+local lastBuffCount = -1
+local defaults, settings, timerColor, theme = {}, {}, {}, {}
 defaults = {
     Scale = 1.0,
     LoadTheme = 'Default',
@@ -62,19 +54,19 @@ defaults = {
 
 
 ---comment Check to see if the file we want to work on exists.
----@param name string -- Full Path to file
+---@param fileName string -- Full Path to file
 ---@return boolean -- returns true if the file exists and false otherwise
-local function File_Exists(name)
-    local f=io.open(name,"r")
+local function File_Exists(fileName)
+    local f=io.open(fileName,"r")
     if f~=nil then io.close(f) return true else return false end
 end
 
 ---comment Writes settings from the settings table passed to the setting file (full path required)
 -- Uses mq.pickle to serialize the table and write to file
----@param file string -- File Name and path
----@param settings table -- Table of settings to write
-local function writeSettings(file, settings)
-    mq.pickle(file, settings)
+---@param fileName string -- File Name and path
+---@param table table -- Table of settings to write
+local function writeSettings(fileName, table)
+    mq.pickle(fileName, table)
 end
 
 local function loadTheme()
@@ -102,49 +94,66 @@ local function loadSettings()
     end
     
     loadTheme()
-    
+    local newSetting = false
     if settings[script].locked == nil then
         settings[script].locked = false
+        newSetting = true
     end
     
     if settings[script].Scale == nil then
         settings[script].Scale = 1
+        newSetting = true
     end
     
     if not settings[script].LoadTheme then
         settings[script].LoadTheme = theme.LoadTheme
+        newSetting = true
     end
     
     if settings[script].IconSize == nil then
         settings[script].IconSize = iconSize
+        newSetting = true
     end
     
     if settings[script].ShowIcons == nil then
         settings[script].ShowIcons = ShowIcons
+        newSetting = true
     end
     
     if settings[script].ShowText == nil then
         settings[script].ShowText = ShowText
+        newSetting = true
     end
     
     if settings[script].ShowTimer == nil then
         settings[script].ShowTimer = ShowTimer
+        newSetting = true
     end
+
     if settings[script].SplitWin == nil then
         settings[script].SplitWin = SplitWin
+        newSetting = true
     end
+
     if settings[script].BuffTimer == nil then
         settings[script].BuffTimer = buffTime
+        newSetting = true
     end
+
     if not settings[script].TimerColor then
         settings[script].TimerColor = {}
         settings[script].TimerColor = {1,1,1,1}
+        newSetting = true
     end
+
     if settings[script].SongTimer == nil then
         settings[script].SongTimer = songTimer
+        newSetting = true
     end
+
     if settings[script].ShowScroll == nil then
         settings[script].ShowScroll = ShowScroll
+        newSetting = true
     end
     
     timerColor = settings[script].TimerColor
@@ -157,10 +166,10 @@ local function loadSettings()
     ShowIcons = settings[script].ShowIcons
     iconSize = settings[script].IconSize
     locked = settings[script].locked
-    ZoomLvl = settings[script].Scale
+    Scale = settings[script].Scale
     themeName = settings[script].LoadTheme
     
-    writeSettings(configFile, settings)
+    if newSetting then writeSettings(configFile, settings) end
 end
 
 --- comments Gets the duration of a spell or song and returns the duration in HH:MM:SS format
@@ -197,21 +206,13 @@ local function DrawInspectableSpellIcon(iconID, spell, i)
     local cursor_x, cursor_y = ImGui.GetCursorPos()
     local beniColor = IM_COL32(0,20,180,190) -- blue benificial default color
     animSpell:SetTextureCell(iconID or 0)
-    -- local caster = BUFF(i).Caster() or '?' -- the caster of the Spell
     if not spell.Beneficial() then
         beniColor = IM_COL32(255,0,0,190) --red detrimental
     end
-    -- if caster == mq.TLO.Me.DisplayName() then
-    --     beniColor = IM_COL32(190,190,20,255) -- detrimental cast by me (yellow)
-    -- end
     ImGui.GetWindowDrawList():AddRectFilled(ImGui.GetCursorScreenPosVec() + 1,
     ImGui.GetCursorScreenPosVec() + iconSize, beniColor)
     ImGui.SetCursorPos(cursor_x+3, cursor_y+3)
-    -- if caster == ME.DisplayName() and spell.Beneficial() then
-    --     ImGui.DrawTextureAnimation(animSpell, textureWidth - 6, textureHeight -6, true)
-    --     else
     ImGui.DrawTextureAnimation(animSpell, iconSize - 5, iconSize - 5)
-    -- end
     ImGui.SetCursorPos(cursor_x+2, cursor_y+2)
     local sName = spell.Name() or '??'
     local sDur = spell.Duration.TotalSeconds() or 0
@@ -227,13 +228,13 @@ local function DrawInspectableSpellIcon(iconID, spell, i)
 end
 
 ---comment
----@param themeName string -- name of the theme to load form table
+---@param tName string -- name of the theme to load form table
 ---@return integer, integer -- returns the new counter values 
-local function DrawTheme(themeName)
+local function DrawTheme(tName)
     local StyleCounter = 0
     local ColorCounter = 0
     for tID, tData in pairs(theme.Theme) do
-        if tData.Name == themeName then
+        if tData.Name == tName then
             for pID, cData in pairs(theme.Theme[tID].Color) do
                 ImGui.PushStyleColor(pID, ImVec4(cData.Color[1], cData.Color[2], cData.Color[3], cData.Color[4]))
                 ColorCounter = ColorCounter + 1
@@ -299,7 +300,6 @@ local function MyBuffs(count)
                 ----- Show Icons ----
                 if ShowIcons then
                     DrawInspectableSpellIcon(sIcon, BUFF(i), i)
-                    --ImGui.Dummy(textureHeight,textureWidth)
                     ImGui.SameLine()
                 end
                 local sDur = BUFF(i).Duration.TotalMinutes() or 0
@@ -307,20 +307,14 @@ local function MyBuffs(count)
                 
                 ---- Show Timer ----
                 ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                local flashColor = IM_COL32(255, 255, 255, flashAlphaT)
-                if sDurS < 18 and sDurS > 0 then     
-                    -- if timerColor then flashColor = IM_COL32(timerColor[1] * 255, timerColor[2] * 255, timerColor[3] * 255, flashAlphaT) end
-                    ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],flashAlphaT)
-                end
+
                 if sDur < buffTime then
                     if ShowTimer then ImGui.Text(' '..(getDuration(i, 'spell', false) or ' ')) end
                     else
                     ImGui.Text(' ')
                 end
                 ImGui.PopStyleColor()
-                if sDurS < 18 and sDurS > 0 then     
-                    ImGui.PopStyleColor()
-                end
+
                 ---- Show Text ----
                 ImGui.SameLine()
                 if ShowText then ImGui.Text(' '..(BUFF(i).Name() or '')) end
@@ -389,10 +383,6 @@ local function MySongs()
                 ----------- Show Timers -------------------
                 local sngDurS = SONG(i).Duration.TotalSeconds() or 0
                 ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                if sngDurS < 18 and sngDurS > 0 then
-                    local flashColorS = IM_COL32(255, 255, 255, flashAlphaS)
-                    ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],flashAlphaS)
-                end
 
                 if sngDurS < songTimer then
                     if ShowTimer then ImGui.Text(' '..(getDuration(i, 'song', false) or ' ')) end
@@ -400,9 +390,6 @@ local function MySongs()
                     ImGui.Text(' ')
                 end
                 ImGui.PopStyleColor()
-                if sngDurS < 18 and sngDurS > 0 then
-                    ImGui.PopStyleColor()
-                end
                 ImGui.SameLine()
                 
                 ------------ Show Text -------------------
@@ -459,7 +446,7 @@ local function GUI_Buffs(open)
     end
 
     if ImGui.BeginMenuBar() then
-        if ZoomLvl > 1.25 then ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,7) end
+        if Scale > 1.25 then ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,7) end
         local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
         Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
         if ImGui.Button(lockedIcon) then
@@ -492,7 +479,7 @@ local function GUI_Buffs(open)
         ImGui.EndMenuBar()
     end
     ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,3)
-    ImGui.SetWindowFontScale(ZoomLvl)
+    ImGui.SetWindowFontScale(Scale)
     MyBuffs(MaxBuffs)
     if not SplitWin then MySongs() end
 
@@ -523,7 +510,7 @@ local function GUI_Songs(open)
     local show = false
     ColorCountSongs, StyleCountSongs = DrawTheme(themeName)
     open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, flags)
-    ImGui.SetWindowFontScale(ZoomLvl)
+    ImGui.SetWindowFontScale(Scale)
     if not show then
         if StyleCountSongs > 0 then ImGui.PopStyleVar(StyleCountSongs) end
         if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
@@ -548,7 +535,7 @@ local function MyBuffConf_GUI(open)
     StyleCountConf = 0
     ColorCountConf, StyleCountConf = DrawTheme(themeName)
     open, openConfigGUI = ImGui.Begin("MyBuffs Conf", open, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoCollapse))
-    ImGui.SetWindowFontScale(ZoomLvl)
+    ImGui.SetWindowFontScale(Scale)
     if not openConfigGUI then
         openConfigGUI = false
         open = false
@@ -560,11 +547,13 @@ local function MyBuffConf_GUI(open)
     end
     ImGui.SameLine()
     ImGui.SeparatorText('Theme')
+    local vis = ImGui.CollapsingHeader('Theme##Coll'..script)
+    if vis then
     ImGui.Text("Cur Theme: %s", themeName)
     -- Combo Box Load Theme
     
     if ImGui.BeginCombo("Load Theme##MyBuffs", themeName) then
-        ImGui.SetWindowFontScale(ZoomLvl)
+        ImGui.SetWindowFontScale(Scale)
         for k, data in pairs(theme.Theme) do
             local isSelected = data.Name == themeName
             if ImGui.Selectable(data.Name, isSelected) then
@@ -579,15 +568,18 @@ local function MyBuffConf_GUI(open)
     if ImGui.Button('Reload Theme File') then
         loadTheme()
     end
+    end
     --------------------- Sliders ----------------------
     ImGui.SeparatorText('Scaling')
+    local vis = ImGui.CollapsingHeader('Scaling##Coll'..script)
+    if vis then
     -- Slider for adjusting zoom level
-    local tmpZoom = ZoomLvl
-    if ZoomLvl then
+    local tmpZoom = Scale
+    if Scale then
         tmpZoom = ImGui.SliderFloat("Text Scale##MyBuffs", tmpZoom, 0.5, 2.0)
     end
-    if ZoomLvl ~= tmpZoom then
-        ZoomLvl = tmpZoom
+    if Scale ~= tmpZoom then
+        Scale = tmpZoom
     end
     
     -- Slider for adjusting IconSize
@@ -598,7 +590,10 @@ local function MyBuffConf_GUI(open)
     if iconSize ~= tmpSize then
         iconSize = tmpSize
     end
+    end
     ImGui.SeparatorText('Timers')
+    local vis = ImGui.CollapsingHeader('Timers##Coll'..script)
+    if vis then
     ---- timer threshold adjustment sliders
     local tmpBuffTimer = buffTime
     if buffTime then
@@ -617,12 +612,15 @@ local function MyBuffConf_GUI(open)
     if songTimer ~= tmpSongTimer then
         songTimer = tmpSongTimer
     end
- 
+
     timerColor = ImGui.ColorPicker4('Timer Color', timerColor)
+    end
     --------------------- input boxes --------------------
     
     ---------- Checkboxes ---------------------
     ImGui.SeparatorText('Toggles')
+    local vis = ImGui.CollapsingHeader('Toggles##Coll'..script)
+    if vis then
     local tmpShowText = ShowText
     tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
     if tmpShowText ~= ShowText then
@@ -656,7 +654,7 @@ local function MyBuffConf_GUI(open)
     if tmpSplit ~= SplitWin then
         SplitWin = tmpSplit
     end
-    
+    end
     ImGui.SeparatorText('Save and Close')
 
     if ImGui.Button('Save and Close') then
@@ -667,7 +665,7 @@ local function MyBuffConf_GUI(open)
         settings[script].SongTimer = songTimer
         settings[script].BuffTimer = buffTime
         settings[script].IconSize = iconSize
-        settings[script].Scale = ZoomLvl
+        settings[script].Scale = Scale
         settings[script].LoadTheme = themeName
         settings[script].ShowIcons = ShowIcons
         settings[script].ShowText = ShowText
@@ -678,7 +676,6 @@ local function MyBuffConf_GUI(open)
     if ColorCountConf > 0 then ImGui.PopStyleColor(ColorCountConf) end
     ImGui.SetWindowFontScale(1)
     ImGui.End()
-    
 end
 
 local function checkDebuff()
@@ -686,24 +683,24 @@ local function checkDebuff()
     if ME.Poisoned() or ME.Diseased() or ME.Dotted() or ME.Cursed() or ME.Corrupted() then
         tmpDebuffed = true
     end
-        if tmpDebuffed ~= debuffed then
-            debuffed = tmpDebuffed
-            stateChanged = true
-        else
-            stateChanged = false
-        end
-        return stateChanged
+    if tmpDebuffed ~= debuffed then
+        debuffed = tmpDebuffed
+        stateChanged = true
+    else
+        stateChanged = false
+    end
+    return stateChanged
 end
 
 local function recheckBuffs()
     local nTime = os.time()
-    local bCount = mq.TLO.Me.BuffCount() or 0
+    local bCount = ME.BuffCount() or 0
     -- if bCount > 0 or sCount > 0 then
         if (nTime - check > 120 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
-            local lTarg = mq.TLO.Target.ID() or -1
-            mq.cmdf('/target id %s', mq.TLO.Me.ID())
+            local lTarg = TLO.Target.ID() or -1
+            mq.cmdf('/target id %s', ME.ID())
             mq.delay(1)
-            if lTarg ~= -1 and lTarg ~= mq.TLO.Me.ID() then
+            if lTarg ~= -1 and lTarg ~= ME.ID() then
                 mq.cmdf('/target id %s', lTarg)
             else
                 mq.cmdf('/target clear')
@@ -719,7 +716,6 @@ end
 local function init()
     -- check for theme file or load defaults from our themes.lua
     loadSettings()
-    
     mq.imgui.init('GUI_Buffs', GUI_Buffs)
     mq.imgui.init('GUI_Songs', GUI_Songs)
     mq.imgui.init('MyBuffConf_GUI', MyBuffConf_GUI)
@@ -739,8 +735,6 @@ local function MainLoop()
             ShowGUI = true
         end
         if not openGUI then
-            -- openGUI = ShowGUI
-            -- GUI_Buffs(openGUI)
             return false
         end
         recheckBuffs()
