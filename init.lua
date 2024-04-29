@@ -36,7 +36,8 @@ local gIcon = Icons.MD_SETTINGS
 local themeName = 'Default'
 local script = 'MyBuffs'
 local lastBuffCount = -1
-local defaults, settings, timerColor, theme = {}, {}, {}, {}
+local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
+
 defaults = {
     Scale = 1.0,
     LoadTheme = 'Default',
@@ -52,6 +53,37 @@ defaults = {
     TimerColor = {0,0,0,1}
 }
 
+local function GetBuffs()
+    local numBuffs = mq.TLO.Me.BuffCount() or 0
+    local counter = 0
+    if mq.TLO.Me.BuffCount() > 0 then
+        for i = 1, MaxBuffs do
+            if counter == numBuffs then break end
+                if buffs[i] == nil then buffs[i] = {} end
+                buffs[i].Icon =  mq.TLO.Me.Buff(i).SpellIcon() or 0
+                buffs[i].Name = mq.TLO.Me.Buff(i).Name() or ''
+                buffs[i].Duration = mq.TLO.Me.Buff(i).Duration.TimeHMS() or ' '
+                if buffs[i].Icon > 0 then counter = counter + 1 end
+        end
+    end
+    if mq.TLO.Me.CountSongs() > 0 then
+        for i = 1, mq.TLO.Me.CountSongs() do
+            if songs[i] == nil then songs[i] = {} end
+            songs[i].Icon =  mq.TLO.Me.Song(i).SpellIcon() or 0
+            songs[i].Name = mq.TLO.Me.Song(i).Name() or ''
+            songs[i].Duration = mq.TLO.Me.Song(i).Duration.TimeHMS() or ' '
+        end
+    end
+end
+
+local function RemoveBuff(idx)
+    buffs[idx] = nil
+    BUFF(idx).Remove()
+    if TLO.MacroQuest.BuildName()=='Emu' then
+        mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", idx-1)
+    end
+    GetBuffs()
+end
 
 ---comment Check to see if the file we want to work on exists.
 ---@param fileName string -- Full Path to file
@@ -172,32 +204,6 @@ local function loadSettings()
     if newSetting then writeSettings(configFile, settings) end
 end
 
---- comments Gets the duration of a spell or song and returns the duration in HH:MM:SS format
----@param i integer -- Spell Slot Number
----@param type string -- 'song' or 'spell'
----@param tooltip boolean -- is this for a tooltip if so we will display hours as well otherwise we chop it down to minutes and seconds
----@return string -- time formated
-local function getDuration(i, type, tooltip)
-    local remaining = 0
-    if type == 'song' then
-        remaining = SONG(i).Duration() or 0
-        elseif type == 'spell' then
-        remaining = BUFF(i).Duration() or 0
-    end
-    remaining = remaining / 1000 -- convert to seconds
-    -- Calculate hours, minutes, and seconds
-    local h = math.floor(remaining / 3600) or 0
-    remaining = remaining % 3600 -- remaining seconds after removing hours
-    local m = math.floor(remaining / 60) or 0
-    local s = remaining % 60     -- remaining seconds after removing minutes
-    -- Format the time string as H : M : S
-    local sRemaining = string.format("%02d:%02d:%02d", h, m, s)
-    if not tooltip then
-        sRemaining = string.format("%02d:%02d", m, s)
-    end
-    return sRemaining
-end
-
 --- comments
 ---@param iconID integer
 ---@param spell MQSpell
@@ -258,23 +264,23 @@ local function DrawTheme(tName)
 end
 
 local counter = 0
-local function MyBuffs(count)
+local function MyBuffs()
     -- Width and height of each texture
     local windowWidth = ImGui.GetWindowContentRegionWidth()
     if riseT == true then
-        flashAlphaT = flashAlphaT - 5
+        flashAlphaT = flashAlphaT - 2
         elseif riseT == false then
-        flashAlphaT = flashAlphaT + 5
+        flashAlphaT = flashAlphaT + 2
     end
-    if flashAlphaT == 128 then riseT = false end
-    if flashAlphaT == 25 then riseT = true end
+    if flashAlphaT == 200 then riseT = false end
+    if flashAlphaT == 10 then riseT = true end
     if rise == true then
-        flashAlpha = flashAlpha + 5
+        flashAlpha = flashAlpha + 2
         elseif rise == false then
-        flashAlpha = flashAlpha - 5
+        flashAlpha = flashAlpha - 2
     end
-    if flashAlpha == 128 then rise = false end
-    if flashAlpha == 25 then rise = true end
+    if flashAlpha == 200 then rise = false end
+    if flashAlpha == 10 then rise = true end
     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
     
@@ -286,67 +292,65 @@ local function MyBuffs(count)
         else
         ImGui.BeginChild("MyBuffs", sizeX, sizeY, ImGuiChildFlags.Border)
     end
-
-    local numBuffs = ME.BuffCount() or 0
-    counter = 0
-    if ME.BuffCount() > 0 then
-        local sName = ' '
-        for i = 1, count do
-            if counter == numBuffs then break end
-            local sIcon = BUFF(i).SpellIcon() or 0
-            if BUFF(i) ~= nil and BUFF(i).Name() ~= nil then
-                ImGui.BeginGroup()
-                sName = BUFF(i).Name()
-                ----- Show Icons ----
+    for i = 1, MaxBuffs do
+        local v = buffs[i] or nil
+        local sName = ''
+        local sDurT = ''
+        ImGui.BeginGroup()
+        if v == nil then
+            ImGui.Text(tostring(i))
+        else
+            sName = v.Name or ''
+            sDurT = v.Duration or ' '
+            if v.Icon == nil or v.Icon == 0 then
+                ImGui.Text(tostring(i))
+            else
                 if ShowIcons then
-                    DrawInspectableSpellIcon(sIcon, BUFF(i), i)
+                    DrawInspectableSpellIcon(v.Icon, mq.TLO.Me.Buff(i), i)
                     ImGui.SameLine()
                 end
-                local sDur = BUFF(i).Duration.TotalMinutes() or 0
-                local sDurS = BUFF(i).Duration.TotalSeconds() or 0
-                
-                ---- Show Timer ----
-                ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-
-                if sDur < buffTime then
-                    if ShowTimer then ImGui.Text(' '..(getDuration(i, 'spell', false) or ' ')) end
+                if ShowTimer then
+                    local sDur = BUFF(i).Duration.TotalMinutes() or 0
+                    local sDurS = BUFF(i).Duration.TotalSeconds() or 0
+                    if sDur < buffTime then
+                        ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                        ImGui.Text(string.format(" %s ",v.Duration))
+                        ImGui.PopStyleColor()
                     else
-                    ImGui.Text(' ')
+                        ImGui.Text(' ')
+                    end
+                    ImGui.SameLine()
                 end
-                ImGui.PopStyleColor()
-
-                ---- Show Text ----
-                ImGui.SameLine()
-                if ShowText then ImGui.Text(' '..(BUFF(i).Name() or '')) end
-                counter = counter + 1
-                ImGui.EndGroup()
-
-                if ImGui.IsItemHovered() then
-                    if (ImGui.IsMouseReleased(1)) then
-                        BUFF(i).Inspect()
-                        if TLO.MacroQuest.BuildName()=='Emu' then
-                            mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i-1)
-                        end
-                    end
-                    if ImGui.IsMouseDoubleClicked(0) then
-                        BUFF(i).Remove()
-                        if TLO.MacroQuest.BuildName()=='Emu' then
-                            mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", i-1)
-                        end
-                    end
-                    ImGui.BeginTooltip()
-                    if sName ~= '' then
-                        ImGui.Text(sName .. '\n' .. getDuration(i, 'spell', true))
-                        else
-                        ImGui.Text('none')
-                    end
-                    ImGui.EndTooltip()
+                if ShowText then
+                    ImGui.Text(v.Name)
                 end
-
-                else
-                sName = ''
-                ImGui.Dummy(iconSize,iconSize)
             end
+        end
+        ImGui.EndGroup()
+        if ImGui.IsItemHovered() then
+
+            if (ImGui.IsMouseReleased(1)) then
+                BUFF(i).Inspect()
+                if TLO.MacroQuest.BuildName()=='Emu' then
+                    mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i-1)
+                end
+            end
+            if ImGui.IsMouseDoubleClicked(0) then
+                -- RemoveBuff(i)
+                buffs[i] = nil
+                BUFF(i).Remove()
+                if TLO.MacroQuest.BuildName()=='Emu' then
+                    mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", i-1)
+                end
+                GetBuffs()
+            end
+            ImGui.BeginTooltip()
+            if sName ~= '' then
+                ImGui.Text(sName .. '\n' ..sDurT)
+                else
+                ImGui.Text('none')
+            end
+            ImGui.EndTooltip()
         end
     end
     ImGui.EndChild()
@@ -355,6 +359,8 @@ end
 
 local function MySongs()
     -- Width and height of each texture
+    local sCount = mq.TLO.Me.CountSongs() or 0
+    if sCount <= 0 then return end
     local windowWidth = ImGui.GetWindowContentRegionWidth()
 
     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
@@ -367,57 +373,64 @@ local function MySongs()
         else
         ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
     end
-    if ME.CountSongs() > 0 then
-        local sName = '?'
-        for i = 1, ME.CountSongs() do
-            ImGui.BeginGroup()
-            local sIcon = SONG(i).SpellIcon() or 0
-            if SONG(i) ~= nil and SONG(i).Name() ~= nil then
-                sName = SONG(i).Name() or ''
-                ----------- Show Icons ----------------
+    for i = 1, sCount do
+        local v = songs[i] or nil
+        local sName = ''
+        local sDurT = ''
+        ImGui.BeginGroup()
+        if v == nil then
+            ImGui.Text(tostring(i))
+        else
+            sName = v.Name
+            sDurT = v.Duration
+            if v.Icon == nil or v.Icon == 0 then
+                ImGui.Text(tostring(i))
+            else
                 if ShowIcons then
-                    DrawInspectableSpellIcon(sIcon, SONG(i), i)
+                    DrawInspectableSpellIcon(v.Icon, mq.TLO.Me.Song(i), i)
                     ImGui.SameLine()
                 end
-
-                ----------- Show Timers -------------------
-                local sngDurS = SONG(i).Duration.TotalSeconds() or 0
-                ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-
-                if sngDurS < songTimer then
-                    if ShowTimer then ImGui.Text(' '..(getDuration(i, 'song', false) or ' ')) end
+                if ShowTimer then
+                    local sngDurS = mq.TLO.Me.Song(i).Duration.TotalSeconds() or 0
+                    if sngDurS < songTimer then 
+                        ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                        ImGui.Text(string.format(" %s ",sDurT))
+                        ImGui.PopStyleColor()
                     else
-                    ImGui.Text(' ')
-                end
-                ImGui.PopStyleColor()
-                ImGui.SameLine()
-                
-                ------------ Show Text -------------------
-                if ShowText then ImGui.Text(' '..(SONG(i).Name() or '')) end
-                else
-                ImGui.Dummy(iconSize,iconSize)
-            end
-            ImGui.EndGroup()
-            if ImGui.IsItemHovered() then
-                if (ImGui.IsMouseReleased(1)) then
-                    BUFF(i).Inspect()
-                    if TLO.MacroQuest.BuildName()=='Emu' then
-                        mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i-1)
+                        ImGui.Text(' ')
                     end
+                    ImGui.SameLine()    
                 end
-                if ImGui.IsMouseDragging(0, 15) then
-                    BUFF(i).Remove()
-                    if TLO.MacroQuest.BuildName()=='Emu' then
-                        mq.cmdf("/nomodkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i-1)
-                    end
+                if ShowText then
+                    ImGui.Text(v.Name)
                 end
-                ImGui.BeginTooltip()
-                ImGui.Text(sName .. '\n' .. getDuration(i, 'song', true))
-                ImGui.EndTooltip()
             end
         end
+        ImGui.EndGroup()
+        if ImGui.IsItemHovered() then
+            if (ImGui.IsMouseReleased(1)) then
+                SONG(i).Inspect()
+                if TLO.MacroQuest.BuildName()=='Emu' then
+                    mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i-1)
+                end
+            end
+            if ImGui.IsMouseDoubleClicked(0) then
+                songs[i] = nil
+                SONG(i).Remove()
+                if TLO.MacroQuest.BuildName()=='Emu' then
+                    mq.cmdf("/nomodkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i-1)
+                end
+                GetBuffs()
+            end
+            ImGui.BeginTooltip()
+            if sName ~= '' then
+                ImGui.Text(sName .. '\n' ..SONG(i).Duration.TimeHMS())
+                else
+                ImGui.Text('none')
+            end
+            ImGui.EndTooltip()
+        end
     end
-    
     ImGui.EndChild()
     ImGui.PopStyleVar()
 end
@@ -480,7 +493,7 @@ local function GUI_Buffs(open)
     end
     ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,3)
     ImGui.SetWindowFontScale(Scale)
-    MyBuffs(MaxBuffs)
+    MyBuffs()
     if not SplitWin then MySongs() end
 
     if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) else ImGui.PopStyleVar(1) end
@@ -680,7 +693,7 @@ end
 
 local function checkDebuff()
     local tmpDebuffed = debuffed
-    if ME.Poisoned() or ME.Diseased() or ME.Dotted() or ME.Cursed() or ME.Corrupted() then
+    if ME.Poisoned() or ME.Diseased() or ME.Dotted() or ME.Cursed() or ME.Corrupted() or ME.Snared() or ME.Rooted()then
         tmpDebuffed = true
     end
     if tmpDebuffed ~= debuffed then
@@ -695,11 +708,12 @@ end
 local function recheckBuffs()
     local nTime = os.time()
     local bCount = ME.BuffCount() or 0
+    
     -- if bCount > 0 or sCount > 0 then
         if (nTime - check > 120 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
             local lTarg = TLO.Target.ID() or -1
             mq.cmdf('/target id %s', ME.ID())
-            mq.delay(1)
+            mq.delay(100)
             if lTarg ~= -1 and lTarg ~= ME.ID() then
                 mq.cmdf('/target id %s', lTarg)
             else
@@ -719,15 +733,21 @@ local function init()
     mq.imgui.init('GUI_Buffs', GUI_Buffs)
     mq.imgui.init('GUI_Songs', GUI_Songs)
     mq.imgui.init('MyBuffConf_GUI', MyBuffConf_GUI)
+    -- Print Output
+    printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Loaded",TLO.Time())
+    printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Right Click will inspect Buff",TLO.Time())
+    printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Double Left Click will Remove the Buff",TLO.Time())
+
+    recheckBuffs()
+    GetBuffs()
 end
 
 local function MainLoop()
     while true do
         if TLO.Window('CharacterListWnd').Open() then return false end
-        mq.delay(1)
+        mq.delay(100)
         if ME.Zoning() then
             ShowGUI = false
-            local flag = not ME.Zoning()
             mq.delay(9000, function() return not ME.Zoning() end)
             firstTime = true
             lastBuffCount = -1
@@ -737,13 +757,13 @@ local function MainLoop()
         if not openGUI then
             return false
         end
+        
         recheckBuffs()
+        GetBuffs()
+        checkDebuff()
     end
 end
 
 init()
-printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Loaded",TLO.Time())
-printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Right Click will inspect Buff",TLO.Time())
-printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Double Left Click will Remove the Buff",TLO.Time())
-recheckBuffs()
+
 MainLoop()
