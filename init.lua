@@ -242,6 +242,12 @@ end
 local function DrawInspectableSpellIcon(iconID, spell, i)
     local cursor_x, cursor_y = ImGui.GetCursorPos()
     local beniColor = IM_COL32(0,20,180,190) -- blue benificial default color
+    if iconID == 0 then
+        ImGui.SetWindowFontScale(Scale)
+        ImGui.Text(tostring(i))
+        ImGui.SetWindowFontScale(1)
+        return
+    end
     animSpell:SetTextureCell(iconID or 0)
     if not spell.Beneficial then
         beniColor = IM_COL32(255,0,0,190) --red detrimental
@@ -335,31 +341,29 @@ local function MyBuffs()
         else
             sName = buffs[i].Name or ''
             sDurT = buffs[i].Duration or ' '
-            if buffs[i].Icon == nil or buffs[i].Icon == 0 then
-                ImGui.SetWindowFontScale(Scale)
-                ImGui.Text(tostring(i))
-                ImGui.SetWindowFontScale(1)
-            else
-                if ShowIcons then
-                    DrawInspectableSpellIcon(buffs[i].Icon, buffs[i], i)
-                    ImGui.SameLine()
-                end
-                if ShowTimer then
-                    local sDur = BUFF(i).Duration.TotalMinutes() or 0
-                    local sDurS = BUFF(i).Duration.TotalSeconds() or 0
-                    if sDur < buffTime then
-                        ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                        ImGui.Text(string.format(" %s ",buffs[i].Duration))
-                        ImGui.PopStyleColor()
-                    else
-                        ImGui.Text(' ')
-                    end
-                    ImGui.SameLine()
-                end
-                if ShowText then
-                    ImGui.Text(buffs[i].Name)
-                end
+
+            if ShowIcons then
+                DrawInspectableSpellIcon(buffs[i].Icon, buffs[i], i)
+                ImGui.SameLine()
             end
+
+            if ShowTimer then
+                local sDur = BUFF(i).Duration.TotalMinutes() or 0
+                local sDurS = BUFF(i).Duration.TotalSeconds() or 0
+                if sDur < buffTime then
+                    ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                    ImGui.Text(string.format(" %s ",buffs[i].Duration))
+                    ImGui.PopStyleColor()
+                else
+                    ImGui.Text(' ')
+                end
+                ImGui.SameLine()
+            end
+
+            if ShowText then
+                ImGui.Text(buffs[i].Name)
+            end
+
         end
         ImGui.EndGroup()
         if ImGui.IsItemHovered() then
@@ -377,9 +381,17 @@ local function MyBuffs()
             end
             ImGui.BeginTooltip()
             if buffs[i] ~= nil then
-                ImGui.Text(sName .. '\n' ..sDurT)
+                if buffs[i].Icon > 0 then
+                    ImGui.Text(sName .. '\n' ..sDurT)
                 else
+                    ImGui.SetWindowFontScale(Scale)
+                    ImGui.Text('none')
+                    ImGui.SetWindowFontScale(1)
+                end
+            else
+                ImGui.SetWindowFontScale(Scale)
                 ImGui.Text('none')
+                ImGui.SetWindowFontScale(1)
             end
             ImGui.EndTooltip()
         end
@@ -450,9 +462,17 @@ local function MySongs()
             end
             ImGui.BeginTooltip()
             if songs[i] ~= nil then
-                ImGui.Text(sName .. '\n' ..sDurT)
+                if songs[i].Icon > 0 then
+                    ImGui.Text(sName .. '\n' ..sDurT)
                 else
+                    ImGui.SetWindowFontScale(Scale)
+                    ImGui.Text('none')
+                    ImGui.SetWindowFontScale(1)
+                end
+            else
+                ImGui.SetWindowFontScale(Scale)
                 ImGui.Text('none')
+                ImGui.SetWindowFontScale(1)
             end
             ImGui.EndTooltip()
         end
