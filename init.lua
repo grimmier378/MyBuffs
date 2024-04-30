@@ -376,7 +376,7 @@ local function MyBuffs()
                 GetBuffs()
             end
             ImGui.BeginTooltip()
-            if sName ~= '' then
+            if buffs[i] ~= nil then
                 ImGui.Text(sName .. '\n' ..sDurT)
                 else
                 ImGui.Text('none')
@@ -449,8 +449,8 @@ local function MySongs()
                 GetBuffs()
             end
             ImGui.BeginTooltip()
-            if sName ~= '' then
-                ImGui.Text(sName .. '\n' ..SONG(i).Duration.TimeHMS())
+            if songs[i] ~= nil then
+                ImGui.Text(sName .. '\n' ..sDurT)
                 else
                 ImGui.Text('none')
             end
