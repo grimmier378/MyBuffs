@@ -244,7 +244,7 @@ local function DrawInspectableSpellIcon(iconID, spell, i)
     local beniColor = IM_COL32(0,20,180,190) -- blue benificial default color
     if iconID == 0 then
         ImGui.SetWindowFontScale(Scale)
-        ImGui.Text(tostring(i))
+        ImGui.TextDisabled(tostring(i))
         ImGui.SetWindowFontScale(1)
         return
     end
@@ -336,7 +336,7 @@ local function MyBuffs()
         ImGui.BeginGroup()
         if buffs[i] == nil then
             ImGui.SetWindowFontScale(Scale)
-            ImGui.Text(tostring(i))
+            ImGui.TextDisabled(tostring(i))
             ImGui.SetWindowFontScale(1)
         else
             sName = buffs[i].Name or ''
@@ -349,10 +349,9 @@ local function MyBuffs()
 
             if ShowTimer then
                 local sDur = BUFF(i).Duration.TotalMinutes() or 0
-                local sDurS = BUFF(i).Duration.TotalSeconds() or 0
                 if sDur < buffTime then
                     ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                    ImGui.Text(string.format(" %s ",buffs[i].Duration))
+                    ImGui.Text(string.format(" %s ",(buffs[i].Duration or '')))
                     ImGui.PopStyleColor()
                 else
                     ImGui.Text(' ')
@@ -360,7 +359,7 @@ local function MyBuffs()
                 ImGui.SameLine()
             end
 
-            if ShowText then
+            if ShowText and buffs[i].Name ~= nil  then
                 ImGui.Text(buffs[i].Name)
             end
 
@@ -423,7 +422,7 @@ local function MySongs()
         ImGui.BeginGroup()
         if songs[i] == nil then
             ImGui.SetWindowFontScale(Scale)
-            ImGui.Text(tostring(i))
+            ImGui.TextDisabled(tostring(i))
             ImGui.SetWindowFontScale(1)
         else
             sName = songs[i].Name
@@ -754,7 +753,7 @@ end
 local function recheckBuffs()
     local nTime = os.time()
     local bCount = ME.BuffCount() or 0
-    
+    numSlots = ME.MaxBuffSlots() or 0
     -- if bCount > 0 or sCount > 0 then
         if (nTime - check > 120 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
             local lTarg = TLO.Target.ID() or -1
