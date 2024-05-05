@@ -323,7 +323,7 @@ local function MyBuffs()
     
     -------------------------------------------- Buffs Section ---------------------------------
     ImGui.SeparatorText('Buffs')
-    if not SplitWin then sizeY = sizeY *0.7 else sizeY = sizeY * 0.9 end
+    if not SplitWin then sizeY = math.floor(sizeY *0.7) else sizeY = math.floor(sizeY * 0.9) end
     if not ShowScroll then
         ImGui.BeginChild("MyBuffs", sizeX, sizeY, ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
         else
@@ -351,7 +351,7 @@ local function MyBuffs()
                 local sDur = BUFF(i).Duration.TotalMinutes() or 0
                 if sDur < buffTime then
                     ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                    ImGui.Text(string.format(" %s ",(buffs[i].Duration or '')))
+                    ImGui.Text(" %s ",(buffs[i].Duration or ''))
                     ImGui.PopStyleColor()
                 else
                     ImGui.Text(' ')
@@ -409,6 +409,8 @@ local function MySongs()
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
     ImGui.SeparatorText('Songs')
     sizeX, sizeY = ImGui.GetContentRegionAvail()
+    sizeX, sizeY = math.floor(sizeX), math.floor(sizeY)
+
     --------- Songs Section -----------------------
     if ShowScroll then
         ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border)
@@ -435,7 +437,7 @@ local function MySongs()
                 local sngDurS = mq.TLO.Me.Song(i).Duration.TotalSeconds() or 0
                 if sngDurS < songTimer then 
                     ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                    ImGui.Text(string.format(" %s ",sDurT))
+                    ImGui.Text(" %s ",sDurT)
                     ImGui.PopStyleColor()
                 else
                     ImGui.Text(' ')
@@ -480,7 +482,7 @@ local function MySongs()
     ImGui.PopStyleVar()
 end
 
-local function GUI_Buffs(open)
+local function GUI_Buffs()
     if not ShowGUI then return end
     if TLO.Me.Zoning() then return end
     ColorCount = 0
@@ -493,14 +495,14 @@ local function GUI_Buffs(open)
         flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
     end
     ColorCount, StyleCount = DrawTheme(themeName)
-    open, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), open, flags)
+    openGUI, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), openGUI, flags)
     
     if not show then
         if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
         if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
         ImGui.SetWindowFontScale(1)
         ImGui.End()
-        return open
+        return openGUI
     end
 
     if ImGui.BeginMenuBar() then
@@ -548,10 +550,10 @@ local function GUI_Buffs(open)
     ImGui.SetWindowFontScale(1)
 
     ImGui.End()
-    return open
+    return openGUI
 end
 
-local function GUI_Songs(open)
+local function GUI_Songs()
     if not SplitWin then return end
     if TLO.Me.Zoning() then return end
     ColorCountSongs = 0
@@ -567,14 +569,14 @@ local function GUI_Songs(open)
     ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
     local show = false
     ColorCountSongs, StyleCountSongs = DrawTheme(themeName)
-    open, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), open, flags)
+    SplitWin, show = ImGui.Begin("MyBuffs_Songs##Songs"..ME.DisplayName(), SplitWin, flags)
     ImGui.SetWindowFontScale(Scale)
     if not show then
         if StyleCountSongs > 0 then ImGui.PopStyleVar(StyleCountSongs) end
         if ColorCountSongs > 0 then ImGui.PopStyleColor(ColorCountSongs) end
         ImGui.SetWindowFontScale(1)
         ImGui.End()
-        return open
+        return SplitWin
     end
     
     MySongs()
@@ -584,7 +586,7 @@ local function GUI_Songs(open)
     ImGui.Spacing()
     ImGui.SetWindowFontScale(1)
     ImGui.End()
-    return open
+    return SplitWin
 end
 
 local function MyBuffConf_GUI(open)
@@ -788,7 +790,7 @@ local function init()
 end
 
 local function MainLoop()
-    while true do
+    while openGUI do
         if TLO.Window('CharacterListWnd').Open() then return false end
         mq.delay(100)
         if ME.Zoning() then
