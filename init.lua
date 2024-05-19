@@ -38,6 +38,7 @@ local script = 'MyBuffs'
 local lastBuffCount = -1
 local build = mq.TLO.MacroQuest.BuildName() -- used to check for EMU to make inspecting buffs work.
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
+local dblCheck = 0
 
 defaults = {
     Scale = 1.0,
@@ -60,10 +61,12 @@ local function GetBuffs()
     if mq.TLO.Me.BuffCount() > 0 then
         for i = 1, numSlots do
             local buff = mq.TLO.Me.Buff(i)
-            if counter == numBuffs then break end
-            if buff.Duration.TimeHMS() == nil then buffs[i] = nil end
+            if counter >= numBuffs then break end
+            if buff.Duration() == nil then buffs[i] = nil else
+                if buff.Duration() <= 0 or buff() == nil then buffs[i] = nil end
+            end
             if buffs[i] == nil then buffs[i] = {ID = 0, Icon = 0,} end
-            if  buffs[i].ID == i then
+            if  buffs[i].ID == i  then
                 buffs[i].TotalMinutes = buff.Duration.TotalMinutes() or 0
                 buffs[i].TotalSeconds = buff.Duration.TotalSeconds() or 0
                 buffs[i].Hours = buff.Duration.Hours() or 0
@@ -83,11 +86,18 @@ local function GetBuffs()
         end
     end
     if mq.TLO.Me.CountSongs() > 0 then
-        for i = 1, mq.TLO.Me.CountSongs() do
+        local count = 0
+        local numSongs = mq.TLO.Me.CountSongs() or 0
+        for i = 1, 20 do
+            if count >= numSongs then break end
             local song = mq.TLO.Me.Song(i)
-            if song.Duration.TimeHMS() == nil then songs[i] = nil end
+            if song.Duration() == nil then songs[i] = nil else
+                if song.Duration() <= 0 or song() == nil then
+                    songs[i] = nil
+                end
+            end
             if songs[i] == nil then songs[i] = {ID = 0, Icon = 0,} end
-            if  songs[i].ID == i then
+            if  songs[i].ID == i and song[i].Name == song.Name() then
                 songs[i].TotalMinutes = song.Duration.TotalMinutes() or 0
                 songs[i].TotalSeconds = song.Duration.TotalSeconds() or 0
                 songs[i].Hours = song.Duration.Hours() or 0
@@ -103,17 +113,9 @@ local function GetBuffs()
                 songs[i].Hours = song.Duration.Hours() or 0
                 songs[i].Duration = song.Duration.TimeHMS() or ' '
             end
+            count = count + 1
         end
     end
-end
-
-local function RemoveBuff(idx)
-    buffs[idx] = nil
-    BUFF(idx).Remove()
-    if TLO.MacroQuest.BuildName()=='Emu' then
-        mq.cmdf("/nomodkey /notify BuffWindow Buff%s leftmouseup", idx-1)
-    end
-    GetBuffs()
 end
 
 ---comment Check to see if the file we want to work on exists.
@@ -334,7 +336,7 @@ local function MyBuffs()
         local sName = ''
         local sDurT = ''
         ImGui.BeginGroup()
-        if buffs[i] == nil then
+        if buffs[i] == nil or buffs[i].ID == 0 then
             ImGui.SetWindowFontScale(Scale)
             ImGui.TextDisabled(tostring(i))
             ImGui.SetWindowFontScale(1)
@@ -417,12 +419,14 @@ local function MySongs()
         else
         ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
     end
-    for i = 1, sCount do
+    local counterSongs = 0
+
+    for i = 1, 20 do
         -- local songs[i] = songs[i] or nil
         local sName = ''
         local sDurT = ''
         ImGui.BeginGroup()
-        if songs[i] == nil then
+        if songs[i] == nil or songs[i].ID == 0 then
             ImGui.SetWindowFontScale(Scale)
             ImGui.TextDisabled(tostring(i))
             ImGui.SetWindowFontScale(1)
@@ -434,8 +438,8 @@ local function MySongs()
                 ImGui.SameLine()
             end
             if ShowTimer then
-                local sngDurS = mq.TLO.Me.Song(i).Duration.TotalSeconds() or 0
-                if sngDurS < songTimer then 
+                local sngDurS = mq.TLO.Me.Song(i).Duration() or 0
+                if sngDurS < (songTimer * 1000) then 
                     ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
                     ImGui.Text(" %s ",sDurT)
                     ImGui.PopStyleColor()
@@ -447,6 +451,8 @@ local function MySongs()
             if ShowText then
                 ImGui.Text(songs[i].Name)
             end
+            counterSongs = counterSongs + 1
+            
         end
         ImGui.EndGroup()
         if ImGui.IsItemHovered() then
@@ -477,6 +483,7 @@ local function MySongs()
             end
             ImGui.EndTooltip()
         end
+        if counterSongs >= sCount then break end
     end
     ImGui.EndChild()
     ImGui.PopStyleVar()
@@ -769,6 +776,12 @@ local function recheckBuffs()
             check = os.time()
             if firstTime then firstTime = false end
             lastBuffCount = bCount
+            dblCheck = dblCheck + 1
+        end
+        if dblCheck >= 5 then
+            dblCheck = 0
+            buffs = {}
+            songs = {}
         end
     -- end
 
