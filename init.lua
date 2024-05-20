@@ -55,65 +55,57 @@ defaults = {
     TimerColor = {0,0,0,1}
 }
 
+local function GetBuff(slot)
+    local buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff'..slot..'_Button').Tooltip() or ''
+    local buffName = buffTooltip ~= '' and buffTooltip:sub(1, buffTooltip:find('%(') - 1) or ''
+    local buffDuration = buffTooltip ~= '' and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
+    local buffIcon = mq.TLO.Me.Buff(slot+1).SpellIcon() or 0
+    local buffID = buffName ~= '' and  (mq.TLO.Me.Buff(slot+1).ID() or 0) or 0
+    local buffBeneficial = mq.TLO.Me.Buff(slot+1).Beneficial() or false
+    -- Extract hours, minutes, and seconds from buffDuration
+    local buffHr, buffMin, buffSec = buffDuration:match("(%d+)h"), buffDuration:match("(%d+)m"), buffDuration:match("(%d+)s")
+    buffHr = buffHr and tonumber(buffHr) or 0
+    buffMin = buffMin and tonumber(buffMin) or 0
+    buffSec = buffSec and tonumber(buffSec) or 0
+
+    -- Calculate total minutes and total seconds
+    local totalMin = buffHr * 60 + buffMin
+    local totalSec = totalMin * 60 + buffSec
+
+    buffs[slot] = {Name = buffName, Beneficial = buffBeneficial, Duration = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS() or 0, Icon = buffIcon, ID = buffID, Hours = buffHr, Minutes = buffMin, Seconds = buffSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = buffTooltip}
+    -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, buffName, buffDuration, buffIcon, buffID, buffHr, buffMin, buffSec, totalMin, totalSec)
+end
+
+local function GetSong(slot)
+    local songTooltip = mq.TLO.Window('ShortDurationBuffWindow').Child('SDBW_Buff'..slot..'_Button').Tooltip() or ''
+    local songName = songTooltip ~= '' and songTooltip:sub(1, songTooltip:find('%(') - 1) or ''
+    local songDuration = songTooltip ~= '' and songTooltip:sub(songTooltip:find('%(') + 1, songTooltip:find('%)') - 1) or ''
+    local songIcon = mq.TLO.Me.Song(slot+1).SpellIcon() or 0
+    local songID = songName ~= '' and  (mq.TLO.Me.Song(slot+1).ID() or 0) or 0
+    local songBeneficial = mq.TLO.Me.Song(slot+1).Beneficial() or false
+    -- Extract hours, minutes, and seconds from songDuration
+    local songHr, songMin, songSec = songDuration:match("(%d+)h"), songDuration:match("(%d+)m"), songDuration:match("(%d+)s")
+    songHr = songHr and tonumber(songHr) or 0
+    songMin = songMin and tonumber(songMin) or 0
+    songSec = songSec and tonumber(songSec) or 0
+
+    -- Calculate total minutes and total seconds
+    local totalMin = songHr * 60 + songMin
+    local totalSec = totalMin * 60 + songSec
+
+    songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS() or 0, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
+    -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, songName, songDuration, songIcon, songID, songHr, songMin, songSec, totalMin, totalSec)
+end
+
 local function GetBuffs()
-    local numBuffs = mq.TLO.Me.BuffCount() or 0
-    local counter = 0
     if mq.TLO.Me.BuffCount() > 0 then
-        for i = 1, numSlots do
-            local buff = mq.TLO.Me.Buff(i)
-            if counter >= numBuffs then break end
-            if buff.Duration() == nil then buffs[i] = nil else
-                if buff.Duration() <= 0 or buff() == nil then buffs[i] = nil end
-            end
-            if buffs[i] == nil then buffs[i] = {ID = 0, Icon = 0,} end
-            if  buffs[i].ID == i  then
-                buffs[i].TotalMinutes = buff.Duration.TotalMinutes() or 0
-                buffs[i].TotalSeconds = buff.Duration.TotalSeconds() or 0
-                buffs[i].Hours = buff.Duration.Hours() or 0
-                buffs[i].Duration = buff.Duration.TimeHMS() or ' '
-            else
-                buffs[i].Icon =  buff.SpellIcon() or 0
-                buffs[i].Name = buff.Name() or ''
-                buffs[i].ID = buff.ID() or 0
-                buffs[i].Beneficial = buff.Beneficial() or false
-                buffs[i].Caster = buff.Caster() or ''
-                buffs[i].TotalMinutes = buff.Duration.TotalMinutes() or 0
-                buffs[i].TotalSeconds = buff.Duration.TotalSeconds() or 0
-                buffs[i].Hours = buff.Duration.Hours() or 0
-                buffs[i].Duration = buff.Duration.TimeHMS() or ' '
-            end
-            counter = counter + 1
+        for i = 0, numSlots -1 do
+            GetBuff(i)
         end
     end
     if mq.TLO.Me.CountSongs() > 0 then
-        local count = 0
-        local numSongs = mq.TLO.Me.CountSongs() or 0
-        for i = 1, 20 do
-            if count >= numSongs then break end
-            local song = mq.TLO.Me.Song(i)
-            if song.Duration() == nil then songs[i] = nil else
-                if song.Duration() <= 0 or song() == nil then
-                    songs[i] = nil
-                end
-            end
-            if songs[i] == nil then songs[i] = {ID = 0, Icon = 0,} end
-            if  songs[i].ID == i and song[i].Name == song.Name() then
-                songs[i].TotalMinutes = song.Duration.TotalMinutes() or 0
-                songs[i].TotalSeconds = song.Duration.TotalSeconds() or 0
-                songs[i].Hours = song.Duration.Hours() or 0
-                songs[i].Duration = song.Duration.TimeHMS() or ' '
-            else
-                songs[i].Icon =  song.SpellIcon() or 0
-                songs[i].Name = song.Name() or ''
-                songs[i].ID = song.ID() or 0
-                songs[i].Beneficial = song.Beneficial() or false
-                songs[i].Caster = song.Caster() or ''
-                songs[i].TotalMinutes = song.Duration.TotalMinutes() or 0
-                songs[i].TotalSeconds = song.Duration.TotalSeconds() or 0
-                songs[i].Hours = song.Duration.Hours() or 0
-                songs[i].Duration = song.Duration.TimeHMS() or ' '
-            end
-            count = count + 1
+        for i = 0, 19 do
+            GetSong(i)
         end
     end
 end
@@ -331,29 +323,29 @@ local function MyBuffs()
         else
         ImGui.BeginChild("MyBuffs", sizeX, sizeY, ImGuiChildFlags.Border)
     end
-    for i = 1, numSlots do
+    for i = 0, numSlots -1 do
         
         local sName = ''
         local sDurT = ''
         ImGui.BeginGroup()
         if buffs[i] == nil or buffs[i].ID == 0 then
             ImGui.SetWindowFontScale(Scale)
-            ImGui.TextDisabled(tostring(i))
+            ImGui.TextDisabled(tostring(i+1))
             ImGui.SetWindowFontScale(1)
         else
             sName = buffs[i].Name or ''
             sDurT = buffs[i].Duration or ' '
 
             if ShowIcons then
-                DrawInspectableSpellIcon(buffs[i].Icon, buffs[i], i)
+                DrawInspectableSpellIcon(buffs[i].Icon, buffs[i], i+1)
                 ImGui.SameLine()
             end
 
             if ShowTimer then
-                local sDur = BUFF(i).Duration.TotalMinutes() or 0
+                local sDur = buffs[i].TotalMinutes or 0
                 if sDur < buffTime then
                     ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                    ImGui.Text(" %s ",(buffs[i].Duration or ''))
+                    ImGui.Text(" %s ",sDurT)
                     ImGui.PopStyleColor()
                 else
                     ImGui.Text(' ')
@@ -361,7 +353,7 @@ local function MyBuffs()
                 ImGui.SameLine()
             end
 
-            if ShowText and buffs[i].Name ~= nil  then
+            if ShowText and buffs[i].Name ~= ''  then
                 ImGui.Text(buffs[i].Name)
             end
 
@@ -370,20 +362,18 @@ local function MyBuffs()
         if ImGui.IsItemHovered() then
 
             if (ImGui.IsMouseReleased(1)) then
-                BUFF(i).Inspect()
+                BUFF(i+1).Inspect()
                 if build =='Emu' then
-                    mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i-1)
+                    mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
                 end
             end
             if ImGui.IsMouseDoubleClicked(0) then
-                buffs[i] = nil
-                BUFF(i).Remove()
-                GetBuffs()
+                BUFF(i+1).Remove()
             end
             ImGui.BeginTooltip()
             if buffs[i] ~= nil then
                 if buffs[i].Icon > 0 then
-                    ImGui.Text(sName .. '\n' ..sDurT)
+                    ImGui.Text(buffs[i].Tooltip)
                 else
                     ImGui.SetWindowFontScale(Scale)
                     ImGui.Text('none')
@@ -421,25 +411,25 @@ local function MySongs()
     end
     local counterSongs = 0
 
-    for i = 1, 20 do
+    for i = 0, 19 do
         -- local songs[i] = songs[i] or nil
         local sName = ''
         local sDurT = ''
         ImGui.BeginGroup()
         if songs[i] == nil or songs[i].ID == 0 then
             ImGui.SetWindowFontScale(Scale)
-            ImGui.TextDisabled(tostring(i))
+            ImGui.TextDisabled(tostring(i+1))
             ImGui.SetWindowFontScale(1)
         else
             sName = songs[i].Name
-            sDurT = songs[i].Duration
+            sDurT = songs[i].Duration or ""
             if ShowIcons then
                 DrawInspectableSpellIcon(songs[i].Icon, songs[i], i)
                 ImGui.SameLine()
             end
             if ShowTimer then
-                local sngDurS = mq.TLO.Me.Song(i).Duration() or 0
-                if sngDurS < (songTimer * 1000) then 
+                local sngDurS = songs[i].TotalSeconds or 0
+                if sngDurS < songTimer then 
                     ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
                     ImGui.Text(" %s ",sDurT)
                     ImGui.PopStyleColor()
@@ -450,27 +440,25 @@ local function MySongs()
             end
             if ShowText then
                 ImGui.Text(songs[i].Name)
-            end
-            counterSongs = counterSongs + 1
-            
+            end            
         end
         ImGui.EndGroup()
         if ImGui.IsItemHovered() then
             if (ImGui.IsMouseReleased(1)) then
-                SONG(i).Inspect()
+                SONG(i+1).Inspect()
                 if build =='Emu' then
-                    mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i-1)
+                    mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i)
                 end
             end
             if ImGui.IsMouseDoubleClicked(0) then
-                songs[i] = nil
-                SONG(i).Remove()
-                GetBuffs()
+                -- songs[i] = nil
+                SONG(i+1).Remove()
+                -- GetBuffs()
             end
             ImGui.BeginTooltip()
             if songs[i] ~= nil then
                 if songs[i].Icon > 0 then
-                    ImGui.Text(sName .. '\n' ..sDurT)
+                    ImGui.Text(songs[i].Tooltip)
                 else
                     ImGui.SetWindowFontScale(Scale)
                     ImGui.Text('none')
@@ -483,7 +471,7 @@ local function MySongs()
             end
             ImGui.EndTooltip()
         end
-        if counterSongs >= sCount then break end
+
     end
     ImGui.EndChild()
     ImGui.PopStyleVar()
@@ -745,48 +733,6 @@ local function MyBuffConf_GUI(open)
     ImGui.End()
 end
 
-local function checkDebuff()
-    local tmpDebuffed = debuffed
-    if ME.Poisoned() or ME.Diseased() or ME.Dotted() or ME.Cursed() or ME.Corrupted() or ME.Snared() or ME.Rooted()then
-        tmpDebuffed = true
-    end
-    if tmpDebuffed ~= debuffed then
-        debuffed = tmpDebuffed
-        stateChanged = true
-    else
-        stateChanged = false
-    end
-    return stateChanged
-end
-
-local function recheckBuffs()
-    local nTime = os.time()
-    local bCount = ME.BuffCount() or 0
-    numSlots = ME.MaxBuffSlots() or 0
-    -- if bCount > 0 or sCount > 0 then
-        if (nTime - check > 120 or firstTime) or (bCount ~= lastBuffCount) or checkDebuff() then
-            local lTarg = TLO.Target.ID() or -1
-            mq.cmdf('/target id %s', ME.ID())
-            mq.delay(100)
-            if lTarg ~= -1 and lTarg ~= ME.ID() then
-                mq.cmdf('/target id %s', lTarg)
-            else
-                mq.cmdf('/target clear')
-            end
-            check = os.time()
-            if firstTime then firstTime = false end
-            lastBuffCount = bCount
-            dblCheck = dblCheck + 1
-        end
-        if dblCheck >= 5 then
-            dblCheck = 0
-            buffs = {}
-            songs = {}
-        end
-    -- end
-
-end
-
 local function init()
     -- check for theme file or load defaults from our themes.lua
     loadSettings()
@@ -798,7 +744,7 @@ local function init()
     printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Right Click will inspect Buff",TLO.Time())
     printf("\ag %s \aw[\ayMyBuffs\aw] ::\a-t Double Left Click will Remove the Buff",TLO.Time())
 
-    recheckBuffs()
+    -- recheckBuffs()
     GetBuffs()
 end
 
@@ -818,9 +764,9 @@ local function MainLoop()
             return false
         end
         
-        recheckBuffs()
+        -- recheckBuffs()
         GetBuffs()
-        checkDebuff()
+        -- checkDebuff()
     end
 end
 
