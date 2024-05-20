@@ -18,15 +18,12 @@ local ME = TLO.Me
 local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
 local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
-local firstTime = true
 local iconSize = 24
 local flashAlpha, flashAlphaT = 1, 255
 local rise, riseT = true, true
 local ShowGUI, openGUI, SplitWin, openConfigGUI = true, true, false, false
-local debuffed, stateChanged = false, false
 local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, true, true
 local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer.
-local check = os.time()
 local numSlots = ME.MaxBuffSlots() or 0 --Max Buff Slots
 local ColorCount, ColorCountSongs, ColorCountConf, StyleCount, StyleCountSongs, StyleCountConf = 0, 0, 0, 0, 0, 0
 local themeFile = mq.configDir .. '/MyThemeZ.lua'
@@ -35,10 +32,9 @@ local Scale = 1.0
 local gIcon = Icons.MD_SETTINGS
 local themeName = 'Default'
 local script = 'MyBuffs'
-local lastBuffCount = -1
 local build = mq.TLO.MacroQuest.BuildName() -- used to check for EMU to make inspecting buffs work.
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
-local dblCheck = 0
+
 
 defaults = {
     Scale = 1.0,
@@ -294,7 +290,6 @@ local function DrawTheme(tName)
     return ColorCounter, StyleCounter
 end
 
-local counter = 0
 local function MyBuffs()
     -- Width and height of each texture
     local windowWidth = ImGui.GetWindowContentRegionWidth()
@@ -755,18 +750,13 @@ local function MainLoop()
         if ME.Zoning() then
             ShowGUI = false
             mq.delay(9000, function() return not ME.Zoning() end)
-            firstTime = true
-            lastBuffCount = -1
             else
             ShowGUI = true
         end
         if not openGUI then
             return false
         end
-        
-        -- recheckBuffs()
         GetBuffs()
-        -- checkDebuff()
     end
 end
 
