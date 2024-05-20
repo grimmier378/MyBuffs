@@ -22,7 +22,7 @@ local iconSize = 24
 local flashAlpha, flashAlphaT = 1, 255
 local rise, riseT = true, true
 local ShowGUI, openGUI, SplitWin, openConfigGUI = true, true, false, false
-local locked, ShowIcons, ShowTimer, ShowText, ShowScroll = false, true, true, true, true
+local locked, ShowIcons, ShowTimer, ShowText, ShowScroll, DoPulse = false, true, true, true, true, true
 local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer.
 local numSlots = ME.MaxBuffSlots() or 0 --Max Buff Slots
 local ColorCount, ColorCountSongs, ColorCountConf, StyleCount, StyleCountSongs, StyleCountConf = 0, 0, 0, 0, 0, 0
@@ -30,11 +30,13 @@ local themeFile = mq.configDir .. '/MyThemeZ.lua'
 local configFile = mq.configDir .. '/MyUI_Configs.lua'
 local Scale = 1.0
 local gIcon = Icons.MD_SETTINGS
+local PulseSpeed = 5
 local themeName = 'Default'
 local script = 'MyBuffs'
 local build = mq.TLO.MacroQuest.BuildName() -- used to check for EMU to make inspecting buffs work.
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
-
+local lastTime = os.clock()
+local frameTime = 1 / 60 -- time for each frame at 60 fps
 
 defaults = {
     Scale = 1.0,
@@ -44,6 +46,8 @@ defaults = {
     ShowIcons = true,
     ShowTimer = true,
     ShowText = true,
+    DoPulse = true,
+    PulseSpeed = 5,
     ShowScroll = true,
     SplitWin = false,
     SongTimer = 20, -- number of seconds remaining to trigger showing timer
@@ -105,6 +109,29 @@ local function GetSong(slot)
     -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, songName, songDuration, songIcon, songID, songHr, songMin, songSec, totalMin, totalSec)
 end
 
+local function pulseIcon(speed)
+    local currentTime = os.clock()
+    if currentTime - lastTime < frameTime then
+        return -- exit if not enough time has passed
+    end
+
+    lastTime = currentTime -- update the last time
+    if riseT == true then
+        flashAlphaT = flashAlphaT - speed
+        elseif riseT == false then
+        flashAlphaT = flashAlphaT + speed
+    end
+    if flashAlphaT == 200 then riseT = false end
+    if flashAlphaT == 10 then riseT = true end
+    if rise == true then
+        flashAlpha = flashAlpha + speed
+        elseif rise == false then
+        flashAlpha = flashAlpha - speed
+    end
+    if flashAlpha == 200 then rise = false end
+    if flashAlpha == 10 then rise = true end
+end
+
 local function GetBuffs()
     if mq.TLO.Me.BuffCount() > 0 then
         for i = 0, numSlots -1 do
@@ -116,6 +143,7 @@ local function GetBuffs()
             GetSong(i)
         end
     end
+    
 end
 
 ---comment Check to see if the file we want to work on exists.
@@ -169,7 +197,17 @@ local function loadSettings()
         settings[script].Scale = 1
         newSetting = true
     end
+
+    if settings[script].DoPulse == nil then
+        settings[script].DoPulse = true
+        newSetting = true
+    end
     
+    if settings[script].PulseSpeed == nil then
+        settings[script].PulseSpeed = 5
+        newSetting = true
+    end
+
     if not settings[script].LoadTheme then
         settings[script].LoadTheme = theme.LoadTheme
         newSetting = true
@@ -220,7 +258,9 @@ local function loadSettings()
         settings[script].ShowScroll = ShowScroll
         newSetting = true
     end
-    
+
+    PulseSpeed = settings[script].PulseSpeed
+    DoPulse = settings[script].DoPulse
     timerColor = settings[script].TimerColor
     ShowScroll = settings[script].ShowScroll
     songTimer = settings[script].SongTimer
@@ -262,7 +302,8 @@ local function DrawInspectableSpellIcon(iconID, spell, i)
     local sName = spell.Name or '??'
     local sDur = spell.TotalSeconds or 0
     ImGui.PushID(tostring(iconID) .. sName .. "_invis_btn")
-    if sDur < 18 and sDur > 0 then
+    if sDur < 18 and sDur > 0 and DoPulse then
+        pulseIcon(PulseSpeed)
         local flashColor = IM_COL32(0, 0, 0, flashAlpha)
         ImGui.GetWindowDrawList():AddRectFilled(ImGui.GetCursorScreenPosVec() +1,
         ImGui.GetCursorScreenPosVec() + iconSize -4, flashColor)
@@ -305,20 +346,7 @@ end
 local function MyBuffs()
     -- Width and height of each texture
     local windowWidth = ImGui.GetWindowContentRegionWidth()
-    if riseT == true then
-        flashAlphaT = flashAlphaT - 2
-        elseif riseT == false then
-        flashAlphaT = flashAlphaT + 2
-    end
-    if flashAlphaT == 200 then riseT = false end
-    if flashAlphaT == 10 then riseT = true end
-    if rise == true then
-        flashAlpha = flashAlpha + 2
-        elseif rise == false then
-        flashAlpha = flashAlpha - 2
-    end
-    if flashAlpha == 200 then rise = false end
-    if flashAlpha == 10 then rise = true end
+
     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
     
@@ -416,9 +444,10 @@ local function MySongs()
         else
         ImGui.BeginChild("Songs", ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
     end
-    local counterSongs = 0
+    local counterSongs = 1
 
     for i = 0, 19 do
+        if counterSongs > sCount then break end
         -- local songs[i] = songs[i] or nil
         local sName = ''
         local sDurT = ''
@@ -447,7 +476,8 @@ local function MySongs()
             end
             if ShowText then
                 ImGui.Text(songs[i].Name)
-            end            
+            end
+            counterSongs = counterSongs + 1  
         end
         ImGui.EndGroup()
         if ImGui.IsItemHovered() then
@@ -656,26 +686,28 @@ local function MyBuffConf_GUI(open)
     ImGui.SeparatorText('Timers')
     local vis = ImGui.CollapsingHeader('Timers##Coll'..script)
     if vis then
-    ---- timer threshold adjustment sliders
-    local tmpBuffTimer = buffTime
-    if buffTime then
-        tmpBuffTimer = ImGui.SliderInt("Buff Timer (Minutes)##MyBuffs", tmpBuffTimer, 1, 240)
-    end
-    
-    if buffTime ~= tmpBuffTimer then
-        buffTime = tmpBuffTimer
-    end
-    
-    local tmpSongTimer = songTimer
-    if songTimer then
-        tmpSongTimer = ImGui.SliderInt("Song Timer (Seconds)##MyBuffs", tmpSongTimer, 1, 240)
-    end
-    
-    if songTimer ~= tmpSongTimer then
-        songTimer = tmpSongTimer
-    end
+        timerColor = ImGui.ColorEdit4('Timer Color', timerColor, bit32.bor(ImGuiColorEditFlags.NoInputs))
 
-    timerColor = ImGui.ColorPicker4('Timer Color', timerColor)
+    ---- timer threshold adjustment sliders
+        local tmpBuffTimer = buffTime
+        if buffTime then
+            ImGui.SetNextItemWidth(100)
+            tmpBuffTimer = ImGui.InputInt("Buff Timer (Minutes)##MyBuffs", tmpBuffTimer, 1, 600)
+        end
+        if tmpBuffTimer < 0 then tmpBuffTimer = 0 end
+        if buffTime ~= tmpBuffTimer then
+            buffTime = tmpBuffTimer
+        end
+        
+        local tmpSongTimer = songTimer
+        if songTimer then
+            ImGui.SetNextItemWidth(100)
+            tmpSongTimer = ImGui.InputInt("Song Timer (Seconds)##MyBuffs", tmpSongTimer, 1, 600)
+        end
+        if tmpSongTimer < 0 then tmpSongTimer = 0 end
+        if songTimer ~= tmpSongTimer then
+            songTimer = tmpSongTimer
+        end
     end
     --------------------- input boxes --------------------
     
@@ -683,45 +715,58 @@ local function MyBuffConf_GUI(open)
     ImGui.SeparatorText('Toggles')
     local vis = ImGui.CollapsingHeader('Toggles##Coll'..script)
     if vis then
-    local tmpShowText = ShowText
-    tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
-    if tmpShowText ~= ShowText then
-        ShowText = tmpShowText
-    end
-    
-    ImGui.SameLine()
-    local tmpShowIcons = ShowIcons
-    tmpShowIcons = ImGui.Checkbox('Show Icons', tmpShowIcons)
-    if tmpShowIcons ~= ShowIcons then
-        ShowIcons = tmpShowIcons
-    end
-    
-    ImGui.SameLine()
-    
-    local tmpShowTimer = ShowTimer
-    tmpShowTimer = ImGui.Checkbox('Show Timer', tmpShowTimer)
-    if tmpShowTimer ~= ShowTimer then
-        ShowTimer = tmpShowTimer
-    end
-    
-    local tmpScroll = ShowScroll
-    tmpScroll = ImGui.Checkbox('Show Scrollbar', tmpScroll)
-    if tmpScroll ~= ShowScroll then
-        ShowScroll = tmpScroll
-    end
-    ImGui.SameLine()
-    
-    local tmpSplit = SplitWin
-    tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
-    if tmpSplit ~= SplitWin then
-        SplitWin = tmpSplit
-    end
+        local tmpShowIcons = ShowIcons
+        tmpShowIcons = ImGui.Checkbox('Show Icons', tmpShowIcons)
+        if tmpShowIcons ~= ShowIcons then
+            ShowIcons = tmpShowIcons
+        end
+        ImGui.SameLine()
+        local tmpPulseIcons = DoPulse
+        tmpPulseIcons = ImGui.Checkbox('Pulse Icons', tmpPulseIcons)
+        if tmpPulseIcons ~= DoPulse then
+            DoPulse = tmpPulseIcons
+        end
+        local tmpPulseSpeed = PulseSpeed
+        if DoPulse then
+            ImGui.SetNextItemWidth(100)
+            tmpPulseSpeed = ImGui.InputInt("Pulse Speed##MyBuffs", tmpPulseSpeed, 1, 10)
+        end
+        if PulseSpeed < 0 then PulseSpeed = 0 end
+        if PulseSpeed ~= tmpPulseSpeed then
+            PulseSpeed = tmpPulseSpeed
+        end
+
+        ImGui.Separator()
+        local tmpShowText = ShowText
+        tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
+        if tmpShowText ~= ShowText then
+            ShowText = tmpShowText
+        end
+        ImGui.SameLine()
+        local tmpShowTimer = ShowTimer
+        tmpShowTimer = ImGui.Checkbox('Show Timer', tmpShowTimer)
+        if tmpShowTimer ~= ShowTimer then
+            ShowTimer = tmpShowTimer
+        end
+
+        local tmpScroll = ShowScroll
+        tmpScroll = ImGui.Checkbox('Show Scrollbar', tmpScroll)
+        if tmpScroll ~= ShowScroll then
+            ShowScroll = tmpScroll
+        end
+        ImGui.SameLine()
+        local tmpSplit = SplitWin
+        tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
+        if tmpSplit ~= SplitWin then
+            SplitWin = tmpSplit
+        end
     end
     ImGui.SeparatorText('Save and Close')
 
     if ImGui.Button('Save and Close') then
         openConfigGUI = false
         settings = dofile(configFile)
+        settings[script].DoPulse = DoPulse
         settings[script].TimerColor = timerColor
         settings[script].ShowScroll = ShowScroll
         settings[script].SongTimer = songTimer
