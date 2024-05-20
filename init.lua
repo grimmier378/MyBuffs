@@ -60,15 +60,21 @@ local function GetBuff(slot)
     local buffBeneficial = mq.TLO.Me.Buff(slot+1).Beneficial() or false
     -- Extract hours, minutes, and seconds from buffDuration
     local buffHr, buffMin, buffSec = buffDuration:match("(%d+)h"), buffDuration:match("(%d+)m"), buffDuration:match("(%d+)s")
-    buffHr = buffHr and tonumber(buffHr) or 0
-    buffMin = buffMin and tonumber(buffMin) or 0
-    buffSec = buffSec and tonumber(buffSec) or 0
+    buffHr = buffHr and string.format("%02d", tonumber(buffHr)) or "00"
+    buffMin = buffMin and string.format("%02d", tonumber(buffMin)) or "00"
+    buffSec = buffSec and string.format("%02d", tonumber(buffSec)) or "00"
 
     -- Calculate total minutes and total seconds
     local totalMin = buffHr * 60 + buffMin
     local totalSec = totalMin * 60 + buffSec
-
-    buffs[slot] = {Name = buffName, Beneficial = buffBeneficial, Duration = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS() or 0, Icon = buffIcon, ID = buffID, Hours = buffHr, Minutes = buffMin, Seconds = buffSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = buffTooltip}
+    local buffDurHMS = ''
+    if buffHr  ~= "00" then
+        buffDurHMS = buffHr .. ":".. buffMin .. ":" .. buffSec
+    else
+        buffDurHMS = buffMin .. ":" .. buffSec
+    end
+    -- Duration = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS()
+    buffs[slot] = {Name = buffName, Beneficial = buffBeneficial, Duration = buffDurHMS, Icon = buffIcon, ID = buffID, Hours = buffHr, Minutes = buffMin, Seconds = buffSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = buffTooltip}
     -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, buffName, buffDuration, buffIcon, buffID, buffHr, buffMin, buffSec, totalMin, totalSec)
 end
 
@@ -81,15 +87,21 @@ local function GetSong(slot)
     local songBeneficial = mq.TLO.Me.Song(slot+1).Beneficial() or false
     -- Extract hours, minutes, and seconds from songDuration
     local songHr, songMin, songSec = songDuration:match("(%d+)h"), songDuration:match("(%d+)m"), songDuration:match("(%d+)s")
-    songHr = songHr and tonumber(songHr) or 0
-    songMin = songMin and tonumber(songMin) or 0
-    songSec = songSec and tonumber(songSec) or 0
+    songHr = songHr and string.format("%02d", tonumber(songHr)) or "00"
+    songMin = songMin and string.format("%02d", tonumber(songMin)) or "00"
+    songSec = songSec and string.format("%02d", tonumber(songSec)) or "00"
 
     -- Calculate total minutes and total seconds
     local totalMin = songHr * 60 + songMin
     local totalSec = totalMin * 60 + songSec
-
-    songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS() or 0, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
+    local songDurHMS = ""
+    if songHr  ~= "00" then
+        songDurHMS = songHr .. ":".. songMin .. ":" .. songSec
+    else
+        songDurHMS = songMin .. ":" .. songSec
+    end
+    -- Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS()
+    songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = songDurHMS, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
     -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, songName, songDuration, songIcon, songID, songHr, songMin, songSec, totalMin, totalSec)
 end
 
@@ -746,7 +758,7 @@ end
 local function MainLoop()
     while openGUI do
         if TLO.Window('CharacterListWnd').Open() then return false end
-        mq.delay(100)
+        mq.delay(500)
         if ME.Zoning() then
             ShowGUI = false
             mq.delay(9000, function() return not ME.Zoning() end)
