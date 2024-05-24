@@ -5,10 +5,9 @@
     Right Click to Inspect
     Left Click and Drag to remove a buff.
 ]]
----@type Mq
+
 local mq = require('mq')
 local actors = require('actors')
----@type ImGui
 local ImGui = require('ImGui')
 local Icons = require('mq.ICONS')
 
@@ -36,17 +35,17 @@ local Actor
 local themeName = 'Default'
 local firstRun = true
 local script = 'MyBuffs'
-local build = mq.TLO.MacroQuest.BuildName() -- used to check for EMU to make inspecting buffs work.
-local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
 local lastTime = os.clock()
-local checkIn = os.time()
+local checkIn = os.clock()
 local changed = false
 local RUNNING = true
 local solo = true
 local boxes = {}
+local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
 local activeTab = ''
 local activeSongTab = ''
-local frameTime = 1 / 60 -- time for each frame at 60 fps
+local frameTime = 1 / 60
+local build = mq.TLO.MacroQuest.BuildName()
 
 defaults = {
     Scale = 1.0,
@@ -60,10 +59,11 @@ defaults = {
     PulseSpeed = 5,
     ShowScroll = true,
     SplitWin = false,
-    SongTimer = 20, -- number of seconds remaining to trigger showing timer
-    BuffTimer = 5,  -- number of minutes remaining to trigger showing timer
-    TimerColor = {0,0,0,1}
+    SongTimer = 20,
+    BuffTimer = 5,
+    TimerColor = {0,0,0,1},
 }
+
 ---comment
 ---@param songsTable table
 ---@param buffsTable table
