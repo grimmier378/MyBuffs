@@ -685,6 +685,16 @@ local function BoxSongs(id)
 
 end
 
+local function sortedBoxes(boxes)
+    table.sort(boxes, function(a, b)
+        return a.Who < b.Who
+    end)
+    return boxes
+end
+
+local maxButtonsPerRow = 3  -- Set the maximum number of buttons per row
+local activeButton = mq.TLO.Me.Name()  -- Initialize the active button with the first box's name
+
 local function MyBuffsGUI_Buffs()
     if not ShowGUI then return end
     if TLO.Me.Zoning() then return end
@@ -745,23 +755,85 @@ local function MyBuffsGUI_Buffs()
         -- if Scale > 1.25 then ImGui.PopStyleVar() end
     end
 
-    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,3)
+
+    -- ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4, 3)
+    -- ImGui.SetWindowFontScale(Scale)
+    -- if not solo then
+    --     ImGui.BeginGroup()
+    --     if #boxes > 0 then 
+    --         for row = 0, math.floor((#boxes - 1) / maxButtonsPerRow) do
+    --             for i = 1, maxButtonsPerRow do
+    --                 local buttonIndex = row * maxButtonsPerRow + i
+    --                 if buttonIndex > #boxes then break end
+    --                 local box = boxes[buttonIndex]
+    --                 local btnName = string.sub(box.Who, 1, 3)
+    --                 if ImGui.Button(btnName.."##"..box.Who) then
+    --                     activeButton = box.Who
+    --                 end
+    --                 if ImGui.IsItemHovered() then
+    --                 ImGui.BeginTooltip()
+    --                 ImGui.Text("Click to view %s's buffs and songs", box.Who)
+    --                 ImGui.EndTooltip()
+    --                 end
+    --                 if i < maxButtonsPerRow then ImGui.SameLine() end
+    --             end
+    --         end
+    --     end
+    --     ImGui.EndGroup()
+    
+    --     -- Draw the content of the active button
+    --     for i = 1, #boxes do
+    --         if boxes[i].Who == activeButton then
+    --             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+    --             BoxBuffs(i)
+    --             if not SplitWin then BoxSongs(i) end
+    --             ImGui.PopStyleVar()
+    --             break
+    --         end
+    --     end
+    -- else
+    --     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+    --     BoxBuffs(1)
+    --     if not SplitWin then BoxSongs(1) end
+    --     ImGui.PopStyleVar()
+    -- end
+    -- ImGui.PopStyleVar()
+
+    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4, 3)
     ImGui.SetWindowFontScale(Scale)
     if not solo then
-        if ImGui.BeginTabBar("MyBuffs Buffs##my_buffs") then
-            if #boxes > 0 then 
-                for i = 1 ,#boxes do
-                    if ImGui.BeginTabItem(boxes[i].Who.."##"..boxes[i].Who) then
-                        activeTab = boxes[i].Who
-                        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-                        BoxBuffs(i)
-                        if not SplitWin then BoxSongs(i) end
-                        ImGui.PopStyleVar()
-                        ImGui.EndTabItem()
-                    end
+        if #boxes > 0 then
+            -- Sort boxes by the 'Who' attribute
+            local sorted_boxes = sortedBoxes(boxes)
+
+            local activeIndex = 0
+            for i = 1, #sorted_boxes do
+                if sorted_boxes[i].Who == activeButton then
+                    activeIndex = i
+                    break
                 end
             end
-            ImGui.EndTabBar()
+        
+            if ImGui.BeginCombo("##CharacterCombo", activeButton) then
+                for i = 1, #sorted_boxes do
+                    local box = sorted_boxes[i]
+                    if ImGui.Selectable(box.Who, activeButton == box.Who) then
+                        activeButton = box.Who
+                    end
+                end
+                ImGui.EndCombo()
+            end
+        
+            -- Draw the content of the active button
+            for i = 1, #sorted_boxes do
+                if sorted_boxes[i].Who == activeButton then
+                    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+                    BoxBuffs(i)
+                    if not SplitWin then BoxSongs(i) end
+                    ImGui.PopStyleVar()
+                    break
+                end
+            end
         end
     else
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
@@ -769,6 +841,32 @@ local function MyBuffsGUI_Buffs()
         if not SplitWin then BoxSongs(1) end
         ImGui.PopStyleVar()
     end
+    ImGui.PopStyleVar()
+
+    -- ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,3)
+    -- ImGui.SetWindowFontScale(Scale)
+    -- if not solo then
+    --     if ImGui.BeginTabBar("MyBuffs Buffs##my_buffs") then
+    --         if #boxes > 0 then 
+    --             for i = 1 ,#boxes do
+    --                 if ImGui.BeginTabItem(boxes[i].Who.."##"..boxes[i].Who) then
+    --                     activeTab = boxes[i].Who
+    --                     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+    --                     BoxBuffs(i)
+    --                     if not SplitWin then BoxSongs(i) end
+    --                     ImGui.PopStyleVar()
+    --                     ImGui.EndTabItem()
+    --                 end
+    --             end
+    --         end
+    --         ImGui.EndTabBar()
+    --     end
+    -- else
+    --     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+    --     BoxBuffs(1)
+    --     if not SplitWin then BoxSongs(1) end
+    --     ImGui.PopStyleVar()
+    -- end
     ImGui.SetWindowFontScale(1)
     ImGui.PopStyleVar()
     ImGui.Spacing()
@@ -809,7 +907,7 @@ local function MyBuffsGUI_Songs()
     if #boxes > 0 then
         for i =1, #boxes do
             local selected = ImGuiTabItemFlags.None
-            if boxes[i].Who == activeTab then 
+            if boxes[i].Who == activeButton then 
                 BoxSongs(i)
             end
         end
