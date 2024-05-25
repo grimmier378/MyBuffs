@@ -244,11 +244,21 @@ local function RegisterActor()
         if MemberEntry.DoWho ~= nil and MemberEntry.DoWhat ~= nil then
             if MemberEntry.DoWho == mq.TLO.Me.DisplayName() then 
                 local bID = MemberEntry.DoWhat:sub(5) or 0
-                if MemberEntry.DoWhat:find("buff") then
+                if MemberEntry.DoWhat:find("^buff") then
                     mq.TLO.Me.Buff(bID).Remove()
                     GetBuffs()
-                    elseif MemberEntry.DoWhat:find("song") then
+                    elseif MemberEntry.DoWhat:find("^song") then
                     mq.TLO.Me.Song(bID).Remove()
+                    GetBuffs()
+                    elseif MemberEntry.DoWhat:find("blockbuff") then
+                        bID = MemberEntry.DoWhat:sub(10) or 0
+                        bID = mq.TLO.Spell(bID).ID()
+                    mq.cmdf("/blockspell add me '%s'",bID)
+                    GetBuffs()
+                    elseif MemberEntry.DoWhat:find("blocksong") then
+                        local bID = MemberEntry.DoWhat:sub(10) or 0
+                        bID = mq.TLO.Spell(bID).ID()
+                    mq.cmdf("/blockspell add me '%s'",bID)
                     GetBuffs()
                 end
             end
@@ -519,7 +529,7 @@ local function BoxBuffs(id)
         end
         for i = 0, buffSlots -1 do
             
-            local sName = ''
+            local bID = ''
             local sDurT = ''
             ImGui.BeginGroup()
             if boxBuffs[i] == nil or boxBuffs[i].ID == 0 then
@@ -527,7 +537,7 @@ local function BoxBuffs(id)
                 ImGui.TextDisabled(tostring(i+1))
                 ImGui.SetWindowFontScale(1)
             else
-                sName = boxBuffs[i].Name or ''
+                bID = boxBuffs[i].Name:sub(1,-2)
                 sDurT = boxBuffs[i].Duration or ' '
     
                 if ShowIcons then
@@ -553,16 +563,42 @@ local function BoxBuffs(id)
     
             end
             ImGui.EndGroup()
-            if ImGui.IsItemHovered() then
-                if (ImGui.IsMouseReleased(1)) then
-                    -- print(boxChar)
-                    if boxChar == mq.TLO.Me.DisplayName() then
+            if ImGui.BeginPopupContextItem("##Buff"..tostring(i)) then
+                if ImGui.MenuItem("Inspect##"..i) then
                     BUFF(i+1).Inspect()
                     if build =='Emu' then
                         mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
                     end
                 end
+                if ImGui.MenuItem("Block##"..i) then
+                    local what = string.format('blockbuff%s',bID)
+                    if not solo then
+                        Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                    else
+                        bID = mq.TLO.Spell(bID).ID()
+                        mq.cmdf("/blockspell add me '%s'",bID)
+                    end
                 end
+                if ImGui.MenuItem("Remove##"..i) then
+                    local what = string.format('buff%s',i+1)
+                    if not solo then
+                        Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                    else
+                        mq.TLO.Me.Buff(i+1).Remove()
+                    end
+                end
+                ImGui.EndPopup()
+            end
+            if ImGui.IsItemHovered() then
+                -- if (ImGui.IsMouseReleased(1)) then
+                --     -- print(boxChar)
+                --     if boxChar == mq.TLO.Me.DisplayName() then
+                --     BUFF(i+1).Inspect()
+                --     if build =='Emu' then
+                --         mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
+                --     end
+                -- end
+                -- end
                 if ImGui.IsMouseDoubleClicked(0) then
                     local what = string.format('buff%s',i+1)
                     
@@ -618,7 +654,7 @@ local function BoxSongs(id)
     for i = 0, 19 do
         if counterSongs > sCount then break end
         -- local songs[i] = songs[i] or nil
-        local sName = ''
+        local sID = ''
         local sDurT = ''
         ImGui.BeginGroup()
         if boxSongs[i] == nil or boxSongs[i].ID == 0 then
@@ -626,7 +662,8 @@ local function BoxSongs(id)
             ImGui.TextDisabled("")
             ImGui.SetWindowFontScale(1)
         else
-            sName = boxSongs[i].Name
+            sID = boxSongs[i].Name:sub(1,-2)
+            sID = tostring(mq.TLO.Spell('"'..sID..'"').ID())
             sDurT = boxSongs[i].Duration or ""
             if ShowIcons then
                 DrawInspectableSpellIcon(boxSongs[i].Icon, boxSongs[i], i)
@@ -649,14 +686,39 @@ local function BoxSongs(id)
             counterSongs = counterSongs + 1  
         end
         ImGui.EndGroup()
-        if ImGui.IsItemHovered() then
-            if (ImGui.IsMouseReleased(1)) and boxes[id].Who == ME.DisplayName() then
+        if ImGui.BeginPopupContextItem("##Song"..tostring(i)) then
+            if ImGui.MenuItem("Inspect##"..i) then
                 SONG(i+1).Inspect()
                 if build =='Emu' then
                     mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i)
                 end
             end
+            if ImGui.MenuItem("Block##"..i) then
+                local what = string.format('blocksong%s',sID)
+                if not solo then
+                    Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                else
+                    sID = mq.TLO.Spell(sID).ID()
+                    mq.cmdf("/blockspell add me '%s'",sID)
+                end
+            end
+            if ImGui.MenuItem("Remove##"..i) then
+                local what = string.format('song%s',i+1)
+                if not solo then
+                    Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                else
+                    mq.TLO.Me.Song(i+1).Remove()
+                end
+            end
+            ImGui.EndPopup()
+        end
+        if ImGui.IsItemHovered() then
+            -- if (ImGui.IsMouseReleased(1)) and boxes[id].Who == ME.DisplayName() then
+
+
+            -- end
             if ImGui.IsMouseDoubleClicked(0) then
+
                 if not solo then
                     Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, 'song'..i+1))
                 else
@@ -1149,7 +1211,7 @@ local function init()
     local tmpTar = mq.TLO.Target() or 'none'
     local meName = ME.Name()
     mq.cmdf("/target %s", meName)
-    mq.delay(1000)
+    mq.delay(100)
     mq.delay(5000, function() return mq.TLO.Target() == meName end)
     if tmpTar ~= 'none' and tmpTar ~= meName then
         mq.cmdf("/target %s", tmpTar)
