@@ -234,6 +234,7 @@ end
 local function RegisterActor()
     Actor = actors.register('my_buffs', function(message)
         local MemberEntry = message()
+        -- print('Received Message: ', MemberEntry.Who)
         local who = MemberEntry.Who or 'Unknown'
         local charBuffs = MemberEntry.Buffs or {}
         local charSongs = MemberEntry.Songs or {}
@@ -564,10 +565,12 @@ local function BoxBuffs(id)
             end
             ImGui.EndGroup()
             if ImGui.BeginPopupContextItem("##Buff"..tostring(i)) then
-                if ImGui.MenuItem("Inspect##"..i) then
-                    BUFF(i+1).Inspect()
-                    if build =='Emu' then
-                        mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
+                if boxChar == mq.TLO.Me.DisplayName() then 
+                    if ImGui.MenuItem("Inspect##"..i) then
+                        BUFF(i+1).Inspect()
+                        if build =='Emu' then
+                            mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
+                        end
                     end
                 end
                 if ImGui.MenuItem("Block##"..i) then
@@ -875,7 +878,7 @@ local function MyBuffsGUI_Buffs()
                     break
                 end
             end
-        
+            ImGui.SetNextItemWidth(ImGui.GetWindowWidth()-15)
             if ImGui.BeginCombo("##CharacterCombo", activeButton) then
                 for i = 1, #sorted_boxes do
                     local box = sorted_boxes[i]
@@ -1233,7 +1236,7 @@ end
 local function MainLoop()
     while RUNNING do
         if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
-        if not solo then mq.delay(500) else mq.delay(1000) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
+        if not solo then mq.delay(1000) else mq.delay(100) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
         while ME.Zoning() do
             mq.delay(9000, function() return not ME.Zoning() end)
         end
