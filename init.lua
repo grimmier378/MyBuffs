@@ -348,7 +348,8 @@ end
 local function loadSettings()
     local newSetting = false
     if not File_Exists(configFile) then
-        mq.pickle(configFile, defaults)
+        settings[script] = defaults
+        mq.pickle(configFile, settings)
         loadSettings()
         else
         
@@ -943,9 +944,9 @@ local function MyBuffsGUI_Buffs()
     --     if not SplitWin then BoxSongs(1) end
     --     ImGui.PopStyleVar()
     -- end
-    ImGui.SetWindowFontScale(1)
-    ImGui.PopStyleVar()
-    ImGui.Spacing()
+    -- ImGui.SetWindowFontScale(1)
+
+
     if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
     if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
     ImGui.SetWindowFontScale(1)
