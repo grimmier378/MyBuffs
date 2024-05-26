@@ -36,14 +36,10 @@ local themeName = 'Default'
 local firstRun = true
 local script = 'MyBuffs'
 local lastTime = os.clock()
-local checkIn = os.clock()
-local changed = false
 local RUNNING = true
 local solo = true
 local boxes = {}
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
-local activeTab = ''
-local activeSongTab = ''
 local frameTime = 1 / 60
 local build = mq.TLO.MacroQuest.BuildName()
 
@@ -178,15 +174,6 @@ local function pulseIcon(speed)
     if flashAlpha == 10 then rise = true end
 end
 
-local function CheckIn()
-    local now = os.time()
-    if now - checkIn >= 60 or firstRun then
-        checkIn = now
-        return true
-    end
-    return false
-end
-
 local function CheckStale()
     local now = os.time()
     local found = false
@@ -207,11 +194,9 @@ local function CheckStale()
 end
 
 local function GetBuffs()
-    if mq.TLO.Me.BuffCount() > 0 then
         for i = 0, numSlots -1 do
             GetBuff(i)
         end
-    end
     if mq.TLO.Me.CountSongs() > 0 then
         for i = 0, 19 do
             GetSong(i)
@@ -542,7 +527,7 @@ local function BoxBuffs(id)
         end
         for i = 0, buffSlots -1 do
             
-            local bID = ''
+            local bID
             local sDurT = ''
             ImGui.BeginGroup()
             if boxBuffs[i] == nil or boxBuffs[i].ID == 0 then
@@ -669,7 +654,7 @@ local function BoxSongs(id)
     for i = 0, 19 do
         if counterSongs > sCount then break end
         -- local songs[i] = songs[i] or nil
-        local sID = ''
+        local sID
         local sDurT = ''
         ImGui.BeginGroup()
         if boxSongs[i] == nil or boxSongs[i].ID == 0 then
@@ -769,7 +754,6 @@ local function sortedBoxes(boxes)
     return boxes
 end
 
-local maxButtonsPerRow = 3  -- Set the maximum number of buttons per row
 local activeButton = mq.TLO.Me.Name()  -- Initialize the active button with the first box's name
 
 local function MyBuffsGUI_Buffs()
@@ -1222,19 +1206,7 @@ local function init()
     if not solo then
         RegisterActor()
     end
-    -- Initialize Buff Cache incase it's not loaded
-    local tmpTar = mq.TLO.Target() or 'none'
-    local meName = ME.Name()
-    mq.cmdf("/target %s", meName)
-    mq.delay(100)
-    mq.delay(5000, function() return mq.TLO.Target() == meName end)
-    if tmpTar ~= 'none' and tmpTar ~= meName then
-        mq.cmdf("/target %s", tmpTar)
-        mq.delay(5000, function() return mq.TLO.Target() == tmpTar end)
-    else
-        mq.cmd("/target clear")
-        mq.delay(5000, function() return mq.TLO.Target.ID() == 0 end)
-    end
+
     
     GetBuffs()
     firstRun = false
@@ -1244,7 +1216,6 @@ local function init()
     mq.imgui.init('MyBuffsGUI_Songs', MyBuffsGUI_Songs)
     mq.imgui.init('MyBuffsConf_GUI', MyBuffsConf_GUI)
 end
-
 local function MainLoop()
     while RUNNING do
         if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
@@ -1252,6 +1223,7 @@ local function MainLoop()
         while ME.Zoning() do
             mq.delay(9000, function() return not ME.Zoning() end)
         end
+
         if not RUNNING then
             return false
         end
