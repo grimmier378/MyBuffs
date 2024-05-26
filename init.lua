@@ -131,20 +131,21 @@ local function GetSong(slot)
     songBeneficial = mq.TLO.Me.Song(slot+1).Beneficial() or false
     -- Extract hours, minutes, and seconds from songDuration
 
-    songHr = songHr and string.format("%02d", tonumber(songHr)) or "99"
-    songMin = songMin and string.format("%02d", tonumber(songMin)) or "99"
+    songHr = songHr and string.format("%02d", tonumber(songHr)) or "00"
+    songMin = songMin and string.format("%02d", tonumber(songMin)) or "00"
     songSec = songSec and string.format("%02d", tonumber(songSec)) or "99"
 
     -- Calculate total minutes and total seconds
-    local totalMin = songHr * 60 + songMin
-    local totalSec = totalMin * 60 + songSec
+    local totalMin = mq.TLO.Me.Song(slot+1).Duration.TotalMinutes() or 0
+    local totalSec = mq.TLO.Me.Song(slot+1).Duration.TotalSeconds() or 0
     local songDurHMS = ""
-    if songHr  ~= "99" then
-        songDurHMS = songHr .. ":".. songMin .. ":" .. songSec
-    elseif songSec ~= "99" then
-        songDurHMS = songMin .. ":" .. songSec
-    else
+    if songHr  == "99" then
         songDurHMS = "Permanent"
+        totalSec = 99999
+    elseif songHr  ~= "00" then
+        songDurHMS = songHr .. ":".. songMin .. ":" .. songSec
+    else
+        songDurHMS = songMin .. ":" .. songSec
     end
     -- Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS()
     songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = songDurHMS, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
