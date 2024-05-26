@@ -92,7 +92,7 @@ end
 
 local function GetBuff(slot)
     local buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff'..slot..'_Button').Tooltip() or ''
-    local buffName = buffTooltip ~= '' and buffTooltip:sub(1, buffTooltip:find('%(') - 1) or ''
+    local buffName = buffTooltip ~= '' and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
     local buffDuration = buffTooltip ~= '' and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
     local buffIcon = mq.TLO.Me.Buff(slot+1).SpellIcon() or 0
     local buffID = buffName ~= '' and  (mq.TLO.Me.Buff(slot+1).ID() or 0) or 0
@@ -119,25 +119,36 @@ end
 
 local function GetSong(slot)
     local songTooltip = mq.TLO.Window('ShortDurationBuffWindow').Child('SDBW_Buff'..slot..'_Button').Tooltip() or ''
-    local songName = songTooltip ~= '' and songTooltip:sub(1, songTooltip:find('%(') - 1) or ''
-    local songDuration = songTooltip ~= '' and songTooltip:sub(songTooltip:find('%(') + 1, songTooltip:find('%)') - 1) or ''
-    local songIcon = mq.TLO.Me.Song(slot+1).SpellIcon() or 0
-    local songID = songName ~= '' and  (mq.TLO.Me.Song(slot+1).ID() or 0) or 0
-    local songBeneficial = mq.TLO.Me.Song(slot+1).Beneficial() or false
+
+    local songName = ''
+    local songDuration,songIcon,songID,songBeneficial,songHr,songMin,songSec,totalMin,totalSec,songDurHMS 
+    if songTooltip:find('%(') then
+        songName = songTooltip ~= '' and songTooltip:sub(1, songTooltip:find('%(') - 2) or ''
+        songDuration = songTooltip ~= '' and songTooltip:sub(songTooltip:find('%(') + 1, songTooltip:find('%)') - 1) or ''
+    else
+        songName = songTooltip ~= '' and songTooltip:sub(1, songTooltip:find(':Permanent') - 1) or ''
+        songDuration = '99h 99m 99s'
+    end
+    songHr, songMin, songSec = songDuration:match("(%d+)h"), songDuration:match("(%d+)m"), songDuration:match("(%d+)s")
+    songIcon = mq.TLO.Me.Song(slot+1).SpellIcon() or 0
+    songID = songName ~= '' and  (mq.TLO.Me.Song(slot+1).ID() or 0) or 0
+    songBeneficial = mq.TLO.Me.Song(slot+1).Beneficial() or false
     -- Extract hours, minutes, and seconds from songDuration
-    local songHr, songMin, songSec = songDuration:match("(%d+)h"), songDuration:match("(%d+)m"), songDuration:match("(%d+)s")
-    songHr = songHr and string.format("%02d", tonumber(songHr)) or "00"
-    songMin = songMin and string.format("%02d", tonumber(songMin)) or "00"
-    songSec = songSec and string.format("%02d", tonumber(songSec)) or "00"
+
+    songHr = songHr and string.format("%02d", tonumber(songHr)) or "99"
+    songMin = songMin and string.format("%02d", tonumber(songMin)) or "99"
+    songSec = songSec and string.format("%02d", tonumber(songSec)) or "99"
 
     -- Calculate total minutes and total seconds
     local totalMin = songHr * 60 + songMin
     local totalSec = totalMin * 60 + songSec
     local songDurHMS = ""
-    if songHr  ~= "00" then
+    if songHr  ~= "99" then
         songDurHMS = songHr .. ":".. songMin .. ":" .. songSec
-    else
+    elseif songSec ~= "99" then
         songDurHMS = songMin .. ":" .. songSec
+    else
+        songDurHMS = "Permanent"
     end
     -- Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS()
     songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = songDurHMS, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
@@ -538,7 +549,7 @@ local function BoxBuffs(id)
                 ImGui.TextDisabled(tostring(i+1))
                 ImGui.SetWindowFontScale(1)
             else
-                bID = boxBuffs[i].Name:sub(1,-2)
+                bID = boxBuffs[i].Name:sub(1,-1)
                 sDurT = boxBuffs[i].Duration or ' '
     
                 if ShowIcons then
@@ -665,7 +676,7 @@ local function BoxSongs(id)
             ImGui.TextDisabled("")
             ImGui.SetWindowFontScale(1)
         else
-            sID = boxSongs[i].Name:sub(1,-2)
+            sID = boxSongs[i].Name:sub(1,-1)
             sID = tostring(mq.TLO.Spell('"'..sID..'"').ID())
             sDurT = boxSongs[i].Duration or ""
             if ShowIcons then
