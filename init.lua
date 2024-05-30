@@ -32,10 +32,12 @@ local Scale = 1.0
 local gIcon = Icons.MD_SETTINGS
 local PulseSpeed = 5
 local Actor
+local changed = false
 local themeName = 'Default'
 local firstRun = true
 local script = 'MyBuffs'
 local lastTime = os.clock()
+local checkIn = os.time()
 local RUNNING = true
 local solo = true
 local boxes = {}
@@ -108,6 +110,9 @@ local function GetBuff(slot)
     else
         buffDurHMS = buffMin .. ":" .. buffSec
     end
+    if buffs[slot] ~= nil then
+        if buffs[slot].Name ~= buffName or totalSec < 20 then changed = true end
+    end
     -- Duration = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS()
     buffs[slot] = {Name = buffName, Beneficial = buffBeneficial, Duration = buffDurHMS, Icon = buffIcon, ID = buffID, Hours = buffHr, Minutes = buffMin, Seconds = buffSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = buffTooltip}
     -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, buffName, buffDuration, buffIcon, buffID, buffHr, buffMin, buffSec, totalMin, totalSec)
@@ -147,6 +152,9 @@ local function GetSong(slot)
     else
         songDurHMS = songMin .. ":" .. songSec
     end
+    if songs[slot] ~= nil then
+        if songs[slot].Name ~= songName then changed = true end
+    end
     -- Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS()
     songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = songDurHMS, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
     -- printf('Slot: %d, Name: %s, Duration: %s, Icon: %d, ID: %d, Hours: %d, Minutes: %d, Seconds: %d, TotalMinutes: %d, TotalSeconds: %d', slot, songName, songDuration, songIcon, songID, songHr, songMin, songSec, totalMin, totalSec)
@@ -175,6 +183,15 @@ local function pulseIcon(speed)
     if flashAlpha == 10 then rise = true end
 end
 
+local function CheckIn()
+    local now = os.time()
+    if now - checkIn >= 60 or firstRun then
+        checkIn = now
+        return true
+    end
+    return false
+end
+
 local function CheckStale()
     local now = os.time()
     local found = false
@@ -195,6 +212,7 @@ local function CheckStale()
 end
 
 local function GetBuffs()
+    numSlots = ME.MaxBuffSlots() or 0
         for i = 0, numSlots -1 do
             GetBuff(i)
         end
@@ -203,8 +221,23 @@ local function GetBuffs()
             GetSong(i)
         end
     end
+    if CheckIn() then changed = true end
     if not solo then
-        Actor:send({mailbox='my_buffs'}, GenerateContent(songs, buffs))
+        if changed then
+            Actor:send({mailbox='my_buffs'}, GenerateContent(songs, buffs))
+            changed = false
+        else
+            for i = 1, #boxes do
+                if boxes[i].Who == ME.DisplayName() then
+                    boxes[i].Buffs = buffs
+                    boxes[i].Songs = songs
+                    boxes[1].BuffSlots = numSlots
+                    boxes[1].BuffCount = ME.BuffCount() or 0
+                    boxes[1].Hello = false
+                    break
+                end
+            end
+        end
     else
         if boxes[1] == nil then
             table.insert(boxes, {
@@ -543,19 +576,32 @@ local function BoxBuffs(id)
                     DrawInspectableSpellIcon(boxBuffs[i].Icon, boxBuffs[i], i+1)
                     ImGui.SameLine()
                 end
-    
-                if ShowTimer then
-                    local sDur = boxBuffs[i].TotalMinutes or 0
-                    if sDur < buffTime then
-                        ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                        ImGui.Text(" %s ",sDurT)
-                        ImGui.PopStyleColor()
-                    else
-                        ImGui.Text(' ')
+                if boxChar == mq.TLO.Me.DisplayName() then
+                    if ShowTimer then
+                        local sDur = boxBuffs[i].TotalMinutes or 0
+                        if sDur < buffTime then
+                            ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                            ImGui.Text(" %s ",sDurT)
+                            ImGui.PopStyleColor()
+                        else
+                            ImGui.Text(' ')
+                        end
+                        ImGui.SameLine()
                     end
-                    ImGui.SameLine()
+                else
+                    if ShowTimer then
+                        local sDur = boxBuffs[i].TotalSeconds or 0
+                        if sDur < 20 then
+                            ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                            ImGui.Text(" %s ",sDurT)
+                            ImGui.PopStyleColor()
+                        else
+                            ImGui.Text(' ')
+                        end
+                        ImGui.SameLine()
+                    end
                 end
-    
+
                 if ShowText and boxBuffs[i].Name ~= ''  then
                     ImGui.Text(boxBuffs[i].Name)
                 end
@@ -613,7 +659,11 @@ local function BoxBuffs(id)
                 ImGui.BeginTooltip()
                 if boxBuffs[i] ~= nil then
                     if boxBuffs[i].Icon > 0 then
-                        ImGui.Text(boxBuffs[i].Tooltip)
+                        if boxChar == mq.TLO.Me.DisplayName() then
+                            ImGui.Text(boxBuffs[i].Tooltip)
+                        else
+                            ImGui.Text(boxBuffs[i].Name)
+                        end
                     else
                         ImGui.SetWindowFontScale(Scale)
                         ImGui.Text('none')
@@ -670,16 +720,18 @@ local function BoxSongs(id)
                 DrawInspectableSpellIcon(boxSongs[i].Icon, boxSongs[i], i)
                 ImGui.SameLine()
             end
-            if ShowTimer then
-                local sngDurS = boxSongs[i].TotalSeconds or 0
-                if sngDurS < songTimer then 
-                    ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                    ImGui.Text(" %s ",sDurT)
-                    ImGui.PopStyleColor()
-                else
-                    ImGui.Text(' ')
+            if boxChar == mq.TLO.Me.DisplayName() then
+                if ShowTimer then
+                    local sngDurS = boxSongs[i].TotalSeconds or 0
+                    if sngDurS < songTimer then 
+                        ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
+                        ImGui.Text(" %s ",sDurT)
+                        ImGui.PopStyleColor()
+                    else
+                        ImGui.Text(' ')
+                    end
+                    ImGui.SameLine()    
                 end
-                ImGui.SameLine()    
             end
             if ShowText then
                 ImGui.Text(boxSongs[i].Name)
@@ -729,7 +781,11 @@ local function BoxSongs(id)
             ImGui.BeginTooltip()
             if boxSongs[i] ~= nil then
                 if boxSongs[i].Icon > 0 then
-                    ImGui.Text(boxSongs[i].Tooltip)
+                    if boxChar == mq.TLO.Me.DisplayName() then
+                        ImGui.Text(boxSongs[i].Tooltip)
+                    else
+                        ImGui.Text(boxSongs[i].Name)
+                    end
                 else
                     ImGui.SetWindowFontScale(Scale)
                     ImGui.Text('none')
@@ -1220,7 +1276,7 @@ end
 local function MainLoop()
     while RUNNING do
         if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
-        if not solo then mq.delay(1000) else mq.delay(100) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
+        if not solo then mq.delay(500) else mq.delay(100) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
         while ME.Zoning() do
             mq.delay(9000, function() return not ME.Zoning() end)
         end
