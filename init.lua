@@ -6,45 +6,57 @@
     Left Click and Drag to remove a buff.
 ]]
 
+-- Imports
 local mq = require('mq')
 local actors = require('actors')
 local ImGui = require('ImGui')
 local Icons = require('mq.ICONS')
 
--- set variables
-local animSpell = mq.FindTextureAnimation('A_SpellIcons')
+-- TLO shortcuts
 local TLO = mq.TLO
 local ME = TLO.Me
 local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
+
+-- Config Paths
+local themeFile = mq.configDir .. '/MyThemeZ.lua'
+local configFile = mq.configDir .. '/MyUI_Configs.lua'
+
+-- Tables
+local boxes = {}
+local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
+
+-- local Variables
 local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
 local iconSize = 24
 local flashAlpha, flashAlphaT = 1, 255
 local rise, riseT = true, true
-local ShowGUI, openGUI, SplitWin, openConfigGUI = true, true, false, false
+local ShowGUI,  SplitWin, openConfigGUI = true,  false, false
 local locked, ShowIcons, ShowTimer, ShowText, ShowScroll, DoPulse = false, true, true, true, true, true
+local RUNNING = true
+local solo = true
+local changed = false
+local firstRun = true
 local songTimer, buffTime = 20, 5 -- timers for how many Minutes left before we show the timer.
 local numSlots = ME.MaxBuffSlots() or 0 --Max Buff Slots
 local ColorCount, ColorCountSongs, ColorCountConf, StyleCount, StyleCountSongs, StyleCountConf = 0, 0, 0, 0, 0, 0
-local themeFile = mq.configDir .. '/MyThemeZ.lua'
-local configFile = mq.configDir .. '/MyUI_Configs.lua'
 local Scale = 1.0
+local build = mq.TLO.MacroQuest.BuildName()
+local animSpell = mq.FindTextureAnimation('A_SpellIcons')
 local gIcon = Icons.MD_SETTINGS
+local activeButton = mq.TLO.Me.Name()  -- Initialize the active button with the first box's name
 local PulseSpeed = 5
 local Actor
-local changed = false
-local themeName = 'Default'
-local firstRun = true
 local script = 'MyBuffs'
+local themeName = 'Default'
+local mailBox = {}
+local MailBoxShow = false
+-- Timing Variables
 local lastTime = os.clock()
 local checkIn = os.time()
-local RUNNING = true
-local solo = true
-local boxes = {}
-local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
 local frameTime = 1 / 60
-local build = mq.TLO.MacroQuest.BuildName()
 
+-- default config settings
 defaults = {
     Scale = 1.0,
     LoadTheme = 'Default',
@@ -62,16 +74,20 @@ defaults = {
     TimerColor = {0,0,0,1},
 }
 
+-- Functions
+
 ---comment
 ---@param songsTable table
 ---@param buffsTable table
 ---@return table
-local function GenerateContent(songsTable, buffsTable, doWho, doWhat)
+local function GenerateContent(subject,songsTable, buffsTable, doWho, doWhat)
     local dWho = doWho or nil
     local dWhat = doWhat or nil
-    local hello = false
+    
+    if subject == nil then subject = 'Update' end
     if #boxes == 0 or firstRun then
-        hello = true
+        subject = 'Hello'
+        firstRun = false
     end
 
     local content = {
@@ -83,8 +99,9 @@ local function GenerateContent(songsTable, buffsTable, doWho, doWhat)
         BuffSlots = numSlots,
         BuffCount = ME.BuffCount(),
         Check = os.time(),
-        Hello = hello,
+        Subject = subject
     }
+    checkIn = os.time()
     return content
 end
 
@@ -102,8 +119,9 @@ local function GetBuff(slot)
     buffSec = buffSec and string.format("%02d", tonumber(buffSec)) or "00"
 
     -- Calculate total minutes and total seconds
-    local totalMin = buffHr * 60 + buffMin
-    local totalSec = totalMin * 60 + buffSec
+    local totalMin = tonumber(buffHr) * 60 + tonumber(buffMin)
+    local totalSec = tonumber(totalMin) * 60 + tonumber(buffSec)
+    -- print(totalSec)
     local buffDurHMS = ''
     if buffHr  ~= "00" then
         buffDurHMS = buffHr .. ":".. buffMin .. ":" .. buffSec
@@ -111,7 +129,7 @@ local function GetBuff(slot)
         buffDurHMS = buffMin .. ":" .. buffSec
     end
     if buffs[slot] ~= nil then
-        if buffs[slot].Name ~= buffName or totalSec < 20 then changed = true end
+        if buffs[slot].ID ~= buffID  or (buffID > 0 and totalSec < 20) then changed = true end
     end
     -- Duration = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS()
     buffs[slot] = {Name = buffName, Beneficial = buffBeneficial, Duration = buffDurHMS, Icon = buffIcon, ID = buffID, Hours = buffHr, Minutes = buffMin, Seconds = buffSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = buffTooltip}
@@ -153,7 +171,7 @@ local function GetSong(slot)
         songDurHMS = songMin .. ":" .. songSec
     end
     if songs[slot] ~= nil then
-        if songs[slot].Name ~= songName then changed = true end
+        if songs[slot].ID ~= songID then changed = true end
     end
     -- Duration = mq.TLO.Me.Song(slot+1).Duration.TimeHMS()
     songs[slot] = {Name = songName, Beneficial = songBeneficial, Duration = songDurHMS, Icon = songIcon, ID = songID, Hours = songHr, Minutes = songMin, Seconds = songSec, TotalMinutes = totalMin, TotalSeconds = totalSec, Tooltip = songTooltip}
@@ -185,7 +203,7 @@ end
 
 local function CheckIn()
     local now = os.time()
-    if now - checkIn >= 60 or firstRun then
+    if now - checkIn >= 120 or firstRun then
         checkIn = now
         return true
     end
@@ -201,7 +219,7 @@ local function CheckStale()
             found = true
             break
         else
-            if now - boxes[i].Check > 120 then
+            if now - boxes[i].Check > 180 then
                 table.remove(boxes, i)
                 found = true
                 break
@@ -212,6 +230,8 @@ local function CheckStale()
 end
 
 local function GetBuffs()
+    changed = false
+    local subject = 'Update'
     numSlots = ME.MaxBuffSlots() or 0
         for i = 0, numSlots -1 do
             GetBuff(i)
@@ -221,10 +241,11 @@ local function GetBuffs()
             GetSong(i)
         end
     end
-    if CheckIn() then changed = true end
+    if CheckIn() then changed = true subject = 'CheckIn' end
+    if firstRun then subject = 'Hello' end
     if not solo then
-        if changed then
-            Actor:send({mailbox='my_buffs'}, GenerateContent(songs, buffs))
+        if changed or firstRun then
+            Actor:send({mailbox='my_buffs'}, GenerateContent(subject,songs, buffs))
             changed = false
         else
             for i = 1, #boxes do
@@ -271,62 +292,72 @@ local function RegisterActor()
         local charSlots = MemberEntry.BuffSlots or 0
         local charCount = MemberEntry.BuffCount or 0
         local check = MemberEntry.Check or os.time()
+        local doWho = MemberEntry.DoWho or 'N/A'
+        local dowhat = MemberEntry.DoWhat or 'N/A'
         local found = false
-        if MemberEntry.DoWho ~= nil and MemberEntry.DoWhat ~= nil then
-            if MemberEntry.DoWho == mq.TLO.Me.DisplayName() then 
-                local bID = MemberEntry.DoWhat:sub(5) or 0
-                if MemberEntry.DoWhat:find("^buff") then
-                    mq.TLO.Me.Buff(bID).Remove()
-                    GetBuffs()
-                    elseif MemberEntry.DoWhat:find("^song") then
-                    mq.TLO.Me.Song(bID).Remove()
-                    GetBuffs()
-                    elseif MemberEntry.DoWhat:find("blockbuff") then
-                        bID = MemberEntry.DoWhat:sub(10) or 0
-                        bID = mq.TLO.Spell(bID).ID()
-                    mq.cmdf("/blockspell add me '%s'",bID)
-                    GetBuffs()
-                    elseif MemberEntry.DoWhat:find("blocksong") then
-                        local bID = MemberEntry.DoWhat:sub(10) or 0
-                        bID = mq.TLO.Spell(bID).ID()
-                    mq.cmdf("/blockspell add me '%s'",bID)
-                    GetBuffs()
+        local subject = MemberEntry.Subject or 'Update'
+        table.insert(mailBox, {Name = who, Subject = subject, Check = check, DoWho = doWho, DoWhat = dowhat, When = os.date("%H:%M:%S")})
+
+        if MemberEntry.Subject == 'Action' then
+            if MemberEntry.DoWho ~= nil and MemberEntry.DoWhat ~= nil then
+                if MemberEntry.DoWho == mq.TLO.Me.DisplayName() then 
+                    local bID = MemberEntry.DoWhat:sub(5) or 0
+                    if MemberEntry.DoWhat:find("^buff") then
+                        mq.TLO.Me.Buff(bID).Remove()
+                        GetBuffs()
+                        elseif MemberEntry.DoWhat:find("^song") then
+                        mq.TLO.Me.Song(bID).Remove()
+                        GetBuffs()
+                        elseif MemberEntry.DoWhat:find("blockbuff") then
+                            bID = MemberEntry.DoWhat:sub(10) or 0
+                            bID = mq.TLO.Spell(bID).ID()
+                        mq.cmdf("/blockspell add me '%s'",bID)
+                        GetBuffs()
+                        elseif MemberEntry.DoWhat:find("blocksong") then
+                            local bID = MemberEntry.DoWhat:sub(10) or 0
+                            bID = mq.TLO.Spell(bID).ID()
+                        mq.cmdf("/blockspell add me '%s'",bID)
+                        GetBuffs()
+                    end
                 end
+                return
             end
-            return
         end
         --New member connected if Hello is true. Lets send them our data so they have it.
-        if MemberEntry.Hello then
+        if MemberEntry.Subject == 'Hello' then
             check = os.time()
-            Actor:send({mailbox='my_buffs'}, GenerateContent(songs, buffs))
-            MemberEntry.Hello = false
+            if who ~= ME.DisplayName() then
+                Actor:send({mailbox='my_buffs'}, GenerateContent('Welcome',songs, buffs))
+            end
         end
 
-        if MemberEntry.DoWhat == 'Goodbye' then
+        if MemberEntry.Subject == 'Goodbye' then
             check = 0
         end
         -- Process the rest of the message into the groupData table.
-        for i = 1, #boxes do
-            if boxes[i].Who == who then
-                boxes[i].Buffs = charBuffs
-                boxes[i].Songs = charSongs
-                boxes[i].Check = check
-                boxes[i].BuffSlots = charSlots
-                boxes[i].BuffCount = charCount
-            found = true
-            break
+        if MemberEntry.Subject ~= 'Action' then
+            for i = 1, #boxes do
+                if boxes[i].Who == who then
+                    boxes[i].Buffs = charBuffs
+                    boxes[i].Songs = charSongs
+                    boxes[i].Check = check
+                    boxes[i].BuffSlots = charSlots
+                    boxes[i].BuffCount = charCount
+                    found = true
+                    break
+                end
             end
-        end
-        if not found then
-            table.insert(boxes, {
-                Who = who,
-                Buffs = charBuffs,
-                Songs = charSongs,
-                Check = check,
-                BuffSlots = charSlots,
-                BuffCount = charCount,
-                Hello = false
-            })
+            if not found then
+                table.insert(boxes, {
+                    Who = who,
+                    Buffs = charBuffs,
+                    Songs = charSongs,
+                    Check = check,
+                    BuffSlots = charSlots,
+                    BuffCount = charCount,
+                    Hello = false
+                })
+            end
         end
         if check == 0 then CheckStale() end
     end)
@@ -334,8 +365,8 @@ end
 
 local function SayGoodBye()
     Actor:send({mailbox='my_buffs'}, {
-    DoWhat = 'Goodbye',
-    Name = ME.DisplayName(),
+    Subject = 'Goodbye',
+    Who = ME.DisplayName(),
     Check = 0})
 end
 
@@ -620,7 +651,7 @@ local function BoxBuffs(id)
                 if ImGui.MenuItem("Block##"..i) then
                     local what = string.format('blockbuff%s',bID)
                     if not solo then
-                        Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                        Actor:send({mailbox = 'my_buffs'}, GenerateContent('Action',songs, buffs, boxChar, what))
                     else
                         bID = mq.TLO.Spell(bID).ID()
                         mq.cmdf("/blockspell add me '%s'",bID)
@@ -629,7 +660,7 @@ local function BoxBuffs(id)
                 if ImGui.MenuItem("Remove##"..i) then
                     local what = string.format('buff%s',i+1)
                     if not solo then
-                        Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                        Actor:send({mailbox = 'my_buffs'}, GenerateContent('Action',songs, buffs, boxChar, what))
                     else
                         mq.TLO.Me.Buff(i+1).Remove()
                     end
@@ -651,7 +682,7 @@ local function BoxBuffs(id)
                     
                     -- print(what)
                     if not solo then
-                        Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                        Actor:send({mailbox = 'my_buffs'}, GenerateContent('Action',songs, buffs, boxChar, what))
                     else
                         mq.TLO.Me.Buff(i+1).Remove()
                     end
@@ -725,7 +756,7 @@ local function BoxSongs(id)
                     local sngDurS = boxSongs[i].TotalSeconds or 0
                     if sngDurS < songTimer then 
                         ImGui.PushStyleColor(ImGuiCol.Text,timerColor[1], timerColor[2], timerColor[3],timerColor[4])
-                        ImGui.Text(" %s ",sDurT)
+                        ImGui.Text(" %ss ",sngDurS)
                         ImGui.PopStyleColor()
                     else
                         ImGui.Text(' ')
@@ -749,7 +780,7 @@ local function BoxSongs(id)
             if ImGui.MenuItem("Block##"..i) then
                 local what = string.format('blocksong%s',sID)
                 if not solo then
-                    Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                    Actor:send({mailbox = 'my_buffs'}, GenerateContent('Action',songs, buffs, boxChar, what))
                 else
                     sID = mq.TLO.Spell(sID).ID()
                     mq.cmdf("/blockspell add me '%s'",sID)
@@ -758,7 +789,7 @@ local function BoxSongs(id)
             if ImGui.MenuItem("Remove##"..i) then
                 local what = string.format('song%s',i+1)
                 if not solo then
-                    Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, what))
+                    Actor:send({mailbox = 'my_buffs'}, GenerateContent('Action',songs, buffs, boxChar, what))
                 else
                     mq.TLO.Me.Song(i+1).Remove()
                 end
@@ -773,7 +804,7 @@ local function BoxSongs(id)
             if ImGui.IsMouseDoubleClicked(0) then
 
                 if not solo then
-                    Actor:send({mailbox = 'my_buffs'}, GenerateContent(songs, buffs, boxChar, 'song'..i+1))
+                    Actor:send({mailbox = 'my_buffs'}, GenerateContent('Action',songs, buffs, boxChar, 'song'..i+1))
                 else
                     mq.TLO.Me.Song(i+1).Remove()
                 end
@@ -811,189 +842,153 @@ local function sortedBoxes(boxes)
     return boxes
 end
 
-local activeButton = mq.TLO.Me.Name()  -- Initialize the active button with the first box's name
-
 local function MyBuffsGUI_Buffs()
-    if not ShowGUI then return end
     if TLO.Me.Zoning() then return end
-    ColorCount = 0
-    StyleCount = 0
     -- Default window size
-    ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
-    local show = false
-    local flags = winFlag
-    if locked then
-        flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
-    end
-    ColorCount, StyleCount = DrawTheme(themeName)
-    openGUI, show = ImGui.Begin("MyBuffs##"..ME.DisplayName(), openGUI, flags)
-    if not openGUI then
-        ShowGUI = false
-    end
-    if not show then
+
+    if ShowGUI then
+        ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
+        local flags = winFlag
+        if locked then
+            flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
+        end
+        ColorCount, StyleCount = DrawTheme(themeName)
+        local openGUI, showMain = ImGui.Begin("MyBuffs##"..ME.DisplayName(), true, flags)
+        if not openGUI then
+            ShowGUI = false
+        end
+        if showMain then
+            if ImGui.BeginMenuBar() then
+                -- if Scale > 1.25 then ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,7) end
+                local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
+                Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
+                if ImGui.Button(lockedIcon) then
+
+                    locked = not locked
+                    settings = dofile(configFile)
+                    settings[script].locked = locked
+                    writeSettings(configFile, settings)
+                end
+                if ImGui.IsItemHovered() then
+                    ImGui.BeginTooltip()
+                    ImGui.Text("Lock Window")
+                    ImGui.EndTooltip()
+                end
+                if ImGui.Button(gIcon..'##MyBuffsg') then
+                    openConfigGUI = not openConfigGUI
+                end
+                local splitIcon = SplitWin and Icons.FA_TOGGLE_ON ..'##MyBuffsSplit' or Icons.FA_TOGGLE_OFF ..'##MyBuffsSplit'
+                if ImGui.Button(splitIcon) then
+                    SplitWin = not SplitWin
+                    settings = dofile(configFile)
+                    settings[script].SplitWin = SplitWin
+                    writeSettings(configFile, settings)
+                end
+                if ImGui.IsItemHovered() then
+                    ImGui.BeginTooltip()
+                    ImGui.Text("Split Songs into Separate Window")
+                    ImGui.EndTooltip()
+                end
+                ImGui.EndMenuBar()
+            end
+
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4, 3)
+            ImGui.SetWindowFontScale(Scale)
+            if not solo then
+                if #boxes > 0 then
+                    -- Sort boxes by the 'Who' attribute
+                    local sorted_boxes = sortedBoxes(boxes)
+
+                    local activeIndex = 0
+                    for i = 1, #sorted_boxes do
+                        if sorted_boxes[i].Who == activeButton then
+                            activeIndex = i
+                            break
+                        end
+                    end
+                    ImGui.SetNextItemWidth(ImGui.GetWindowWidth()-15)
+                    if ImGui.BeginCombo("##CharacterCombo", activeButton) then
+                        for i = 1, #sorted_boxes do
+                            local box = sorted_boxes[i]
+                            if ImGui.Selectable(box.Who, activeButton == box.Who) then
+                                activeButton = box.Who
+                            end
+                        end
+                        ImGui.EndCombo()
+                    end
+                
+                    -- Draw the content of the active button
+                    for i = 1, #sorted_boxes do
+                        if sorted_boxes[i].Who == activeButton then
+                            ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+                            BoxBuffs(i)
+                            if not SplitWin then BoxSongs(i) end
+                            ImGui.PopStyleVar()
+                            break
+                        end
+                    end
+                end
+            else
+                ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
+                BoxBuffs(1)
+                if not SplitWin then BoxSongs(1) end
+                ImGui.PopStyleVar()
+            end
+            ImGui.PopStyleVar()
+
+        end
+
         if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
         if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
         ImGui.SetWindowFontScale(1)
-        ImGui.End()
-        return openGUI
-    end
-
-    if ImGui.BeginMenuBar() then
-        -- if Scale > 1.25 then ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,7) end
-        local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
-        Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
-        if ImGui.Button(lockedIcon) then
-
-            locked = not locked
-            settings = dofile(configFile)
-            settings[script].locked = locked
-            writeSettings(configFile, settings)
-        end
-        if ImGui.IsItemHovered() then
-            ImGui.BeginTooltip()
-            ImGui.Text("Lock Window")
-            ImGui.EndTooltip()
-        end
-        if ImGui.Button(gIcon..'##MyBuffsg') then
-            openConfigGUI = not openConfigGUI
-        end
-        local splitIcon = SplitWin and Icons.FA_TOGGLE_ON ..'##MyBuffsSplit' or Icons.FA_TOGGLE_OFF ..'##MyBuffsSplit'
-        if ImGui.Button(splitIcon) then
-            SplitWin = not SplitWin
-            settings = dofile(configFile)
-            settings[script].SplitWin = SplitWin
-            writeSettings(configFile, settings)
-        end
-        if ImGui.IsItemHovered() then
-            ImGui.BeginTooltip()
-            ImGui.Text("Split Songs into Separate Window")
-            ImGui.EndTooltip()
-        end
-        ImGui.EndMenuBar()
-        -- if Scale > 1.25 then ImGui.PopStyleVar() end
-    end
-
-
-    -- ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4, 3)
-    -- ImGui.SetWindowFontScale(Scale)
-    -- if not solo then
-    --     ImGui.BeginGroup()
-    --     if #boxes > 0 then 
-    --         for row = 0, math.floor((#boxes - 1) / maxButtonsPerRow) do
-    --             for i = 1, maxButtonsPerRow do
-    --                 local buttonIndex = row * maxButtonsPerRow + i
-    --                 if buttonIndex > #boxes then break end
-    --                 local box = boxes[buttonIndex]
-    --                 local btnName = string.sub(box.Who, 1, 3)
-    --                 if ImGui.Button(btnName.."##"..box.Who) then
-    --                     activeButton = box.Who
-    --                 end
-    --                 if ImGui.IsItemHovered() then
-    --                 ImGui.BeginTooltip()
-    --                 ImGui.Text("Click to view %s's buffs and songs", box.Who)
-    --                 ImGui.EndTooltip()
-    --                 end
-    --                 if i < maxButtonsPerRow then ImGui.SameLine() end
-    --             end
-    --         end
-    --     end
-    --     ImGui.EndGroup()
-    
-    --     -- Draw the content of the active button
-    --     for i = 1, #boxes do
-    --         if boxes[i].Who == activeButton then
-    --             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-    --             BoxBuffs(i)
-    --             if not SplitWin then BoxSongs(i) end
-    --             ImGui.PopStyleVar()
-    --             break
-    --         end
-    --     end
-    -- else
-    --     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-    --     BoxBuffs(1)
-    --     if not SplitWin then BoxSongs(1) end
-    --     ImGui.PopStyleVar()
-    -- end
-    -- ImGui.PopStyleVar()
-
-    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4, 3)
-    ImGui.SetWindowFontScale(Scale)
-    if not solo then
-        if #boxes > 0 then
-            -- Sort boxes by the 'Who' attribute
-            local sorted_boxes = sortedBoxes(boxes)
-
-            local activeIndex = 0
-            for i = 1, #sorted_boxes do
-                if sorted_boxes[i].Who == activeButton then
-                    activeIndex = i
-                    break
-                end
-            end
-            ImGui.SetNextItemWidth(ImGui.GetWindowWidth()-15)
-            if ImGui.BeginCombo("##CharacterCombo", activeButton) then
-                for i = 1, #sorted_boxes do
-                    local box = sorted_boxes[i]
-                    if ImGui.Selectable(box.Who, activeButton == box.Who) then
-                        activeButton = box.Who
-                    end
-                end
-                ImGui.EndCombo()
-            end
         
-            -- Draw the content of the active button
-            for i = 1, #sorted_boxes do
-                if sorted_boxes[i].Who == activeButton then
-                    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-                    BoxBuffs(i)
-                    if not SplitWin then BoxSongs(i) end
-                    ImGui.PopStyleVar()
-                    break
-                end
-            end
-        end
-    else
-        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-        BoxBuffs(1)
-        if not SplitWin then BoxSongs(1) end
-        ImGui.PopStyleVar()
+        ImGui.End()
     end
-    ImGui.PopStyleVar()
 
-    -- ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, 4,3)
-    -- ImGui.SetWindowFontScale(Scale)
-    -- if not solo then
-    --     if ImGui.BeginTabBar("MyBuffs Buffs##my_buffs") then
-    --         if #boxes > 0 then 
-    --             for i = 1 ,#boxes do
-    --                 if ImGui.BeginTabItem(boxes[i].Who.."##"..boxes[i].Who) then
-    --                     activeTab = boxes[i].Who
-    --                     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-    --                     BoxBuffs(i)
-    --                     if not SplitWin then BoxSongs(i) end
-    --                     ImGui.PopStyleVar()
-    --                     ImGui.EndTabItem()
-    --                 end
-    --             end
-    --         end
-    --         ImGui.EndTabBar()
-    --     end
-    -- else
-    --     ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-    --     BoxBuffs(1)
-    --     if not SplitWin then BoxSongs(1) end
-    --     ImGui.PopStyleVar()
-    -- end
-    -- ImGui.SetWindowFontScale(1)
-
-
-    if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
-    if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
-    ImGui.SetWindowFontScale(1)
-
-    ImGui.End()
-    return openGUI
+    if MailBoxShow then
+        local openMail, showMail = ImGui.Begin("MailBox##MailBox_MyBuffs_"..ME.Name(), true, ImGuiWindowFlags.None)
+        if not openMail then
+            MailBoxShow = false
+            mailBox = {}
+        end
+        if showMail then
+            ImGui.Text('Clear')
+            if ImGui.IsItemHovered() and ImGui.IsMouseReleased(0) then
+                ImGui.BeginTooltip()
+                ImGui.Text("Clear Mail Box")
+                ImGui.EndTooltip()
+                mailBox = {}
+            end
+            ImGui.BeginTable("Mail Box##MyBuffs", 6, bit32.bor(ImGuiTableFlags.Borders,ImGuiTableFlags.Resizable,ImGuiTableFlags.ScrollY), ImVec2(0.0, 0.0))
+            ImGui.TableSetupScrollFreeze(0, 1)
+            ImGui.TableSetupColumn("Sender", ImGuiTableColumnFlags.WidthFixed, 100)
+            ImGui.TableSetupColumn("Subject", ImGuiTableColumnFlags.WidthFixed, 100)
+            ImGui.TableSetupColumn("TimeStamp", ImGuiTableColumnFlags.WidthFixed, 100)
+            ImGui.TableSetupColumn("DoWho", ImGuiTableColumnFlags.WidthFixed, 100)
+            ImGui.TableSetupColumn("DoWhat", ImGuiTableColumnFlags.WidthFixed, 100)
+            ImGui.TableSetupColumn("CheckIn", ImGuiTableColumnFlags.WidthFixed, 100)
+            ImGui.TableHeadersRow()
+            for i = 1, #mailBox do
+                ImGui.TableNextRow()
+                ImGui.TableNextColumn()
+                ImGui.Text(mailBox[i].Name)
+                ImGui.TableNextColumn()
+                ImGui.Text(mailBox[i].Subject)
+                ImGui.TableNextColumn()
+                ImGui.Text(mailBox[i].When)
+                ImGui.TableNextColumn()
+                ImGui.Text(mailBox[i].DoWho)
+                ImGui.TableNextColumn()
+                ImGui.Text(mailBox[i].DoWhat)
+                ImGui.TableNextColumn()
+                ImGui.Text(tostring(mailBox[i].Check))
+            end
+            ImGui.EndTable()
+        end
+        ImGui.End()
+    else
+        mailBox = {}
+    end
 end
 
 local function MyBuffsGUI_Songs()
@@ -1209,6 +1204,9 @@ local function checkArgs(args)
         if args[1] == 'driver' then
             ShowGUI = true
             solo = false
+            if args[2] ~= nil and args[2] == 'mailbox' then
+                MailBoxShow = true
+            end
             print('\ayMyBuffs:\ao Setting \atDriver\ax Mode. Actors [\agEnabled\ax] UI [\agOn\ax].')
             print('\ayMyBuffs:\ao Type \at/mybuffs show\ax. to Toggle the UI')
         elseif args[1] == 'client' then
@@ -1244,10 +1242,13 @@ local function processCommand(...)
             else
                 print('\ayMyBuffs:\ao Toggling GUI \atClosed\ax.')
             end
+
         elseif args[1] == 'exit' or args[1] == 'quit'  then
             print('\ayMyBuffs:\ao Exiting.')
             if not solo then SayGoodBye() end
             RUNNING = false
+        elseif args[1] == 'mailbox' then
+            MailBoxShow = not MailBoxShow
         end
     else
         print('\ayMyBuffs:\ao No command given.')
@@ -1273,10 +1274,11 @@ local function init()
     mq.imgui.init('MyBuffsGUI_Songs', MyBuffsGUI_Songs)
     mq.imgui.init('MyBuffsConf_GUI', MyBuffsConf_GUI)
 end
+
 local function MainLoop()
     while RUNNING do
         if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
-        if not solo then mq.delay(500) else mq.delay(100) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
+        if not solo then mq.delay(500) else mq.delay(33) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
         while ME.Zoning() do
             mq.delay(9000, function() return not ME.Zoning() end)
         end
@@ -1291,5 +1293,4 @@ end
 
 if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
 init()
-
 MainLoop()
