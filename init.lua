@@ -19,9 +19,10 @@ local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
 
 -- Config Paths
-local themeFile = mq.configDir .. '/MyThemeZ.lua'
-local configFile = mq.configDir .. '/MyUI_Configs.lua'
-
+local themeFileOld = mq.configDir .. '/MyThemeZ.lua'
+local themeFile = mq.configDir .. '/MyUI/MyThemeZ.lua'
+local configFileOld = mq.configDir .. '/MyUI_Configs.lua'
+local configFile = mq.configDir .. '/MyUI/MyBuffs/'..ME.Name()..'_Config.lua'
 -- Tables
 local boxes = {}
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
@@ -411,8 +412,14 @@ end
 local function loadTheme()
     if File_Exists(themeFile) then
         theme = dofile(themeFile)
+    else
+        if File_Exists(themeFileOld) then
+            theme = dofile(themeFileOld)
+            mq.pickle(themeFile, theme)
         else
-        theme = require('themes')
+            theme = require('themes')
+            mq.pickle(themeFile, theme)
+        end
     end
     themeName = theme.LoadTheme or 'notheme'
 end
@@ -420,7 +427,12 @@ end
 local function loadSettings()
     local newSetting = false
     if not File_Exists(configFile) then
-        settings[script] = defaults
+        if File_Exists(configFileOld) then
+            local tmp = dofile(configFileOld)
+            settings[script] = tmp[script]
+        else
+            settings[script] = defaults
+        end
         mq.pickle(configFile, settings)
         loadSettings()
         else
@@ -1174,10 +1186,7 @@ local function MyBuffsGUI_Buffs()
         ImGui.End()
     end
 
-    if ShowDebuffs then
-        ColorCountDebuffs = 0
-        StyleCountDebuffs = 0
-        ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
+    if ShowDebuffs then        
         local found = false
         ImGui.SetNextWindowSize(80, 239, ImGuiCond.Appearing)
         for i = 1 , #boxes do
@@ -1187,6 +1196,7 @@ local function MyBuffsGUI_Buffs()
             end
         end
         if found then
+            ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
             local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##"..ME.DisplayName(), true, bit32.bor(ImGuiWindowFlags.AlwaysAutoResize))
             ImGui.SetWindowFontScale(Scale)
 
