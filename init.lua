@@ -106,29 +106,52 @@ local function GenerateContent(subject,songsTable, buffsTable, doWho, doWhat)
 end
 
 local function GetBuff(slot)
-    local buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff'..slot..'_Button').Tooltip() or ''
-    local buffName = buffTooltip ~= '' and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
-    local buffDuration = buffTooltip ~= '' and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
-    local buffIcon = mq.TLO.Me.Buff(slot+1).SpellIcon() or 0
-    local buffID = buffName ~= '' and  (mq.TLO.Me.Buff(slot+1).ID() or 0) or 0
-    local buffBeneficial = mq.TLO.Me.Buff(slot+1).Beneficial() or false
+    local buffTooltip , buffName , buffDuration ,buffIcon, buffID, buffBeneficial,buffHr ,buffMin,buffSec, totalMin,totalSec, buffDurHMS
+    if mq.TLO.MacroQuest.BuildName() == 'Emu' then
+        buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff'..slot..'_Button').Tooltip() or ''
+        buffName = buffTooltip ~= '' and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
+        buffDuration = buffTooltip ~= '' and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
+        buffIcon = mq.TLO.Me.Buff(slot+1).SpellIcon() or 0
+        buffID = buffName ~= '' and  (mq.TLO.Me.Buff(slot+1).ID() or 0) or 0
+        buffBeneficial = mq.TLO.Me.Buff(slot+1).Beneficial() or false
 
-    -- Extract hours, minutes, and seconds from buffDuration
-    local buffHr, buffMin, buffSec = buffDuration:match("(%d+)h"), buffDuration:match("(%d+)m"), buffDuration:match("(%d+)s")
-    buffHr = buffHr and string.format("%02d", tonumber(buffHr)) or "00"
-    buffMin = buffMin and string.format("%02d", tonumber(buffMin)) or "00"
-    buffSec = buffSec and string.format("%02d", tonumber(buffSec)) or "00"
+        -- Extract hours, minutes, and seconds from buffDuration
+        buffHr, buffMin, buffSec = buffDuration:match("(%d+)h"), buffDuration:match("(%d+)m"), buffDuration:match("(%d+)s")
+        buffHr = buffHr and string.format("%02d", tonumber(buffHr)) or "00"
+        buffMin = buffMin and string.format("%02d", tonumber(buffMin)) or "00"
+        buffSec = buffSec and string.format("%02d", tonumber(buffSec)) or "00"
 
-    -- Calculate total minutes and total seconds
-    local totalMin = tonumber(buffHr) * 60 + tonumber(buffMin)
-    local totalSec = tonumber(totalMin) * 60 + tonumber(buffSec)
-    -- print(totalSec)
-    local buffDurHMS = ''
-    if buffHr  ~= "00" then
-        buffDurHMS = buffHr .. ":".. buffMin .. ":" .. buffSec
+        -- Calculate total minutes and total seconds
+        totalMin = tonumber(buffHr) * 60 + tonumber(buffMin)
+        totalSec = tonumber(totalMin) * 60 + tonumber(buffSec)
+        -- print(totalSec)
+        buffDurHMS = ''
+        if buffHr  ~= "00" then
+            buffDurHMS = buffHr .. ":".. buffMin .. ":" .. buffSec
+        else
+            buffDurHMS = buffMin .. ":" .. buffSec
+        end
     else
-        buffDurHMS = buffMin .. ":" .. buffSec
+        buffName = mq.TLO.Me.Buff(slot+1).Name() or ''
+        buffDuration = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS() or ''
+        buffIcon = mq.TLO.Me.Buff(slot+1).SpellIcon() or 0
+        buffID = mq.TLO.Me.Buff(slot+1).ID() or 0
+        buffBeneficial = mq.TLO.Me.Buff(slot+1).Beneficial() or false
+    
+        -- Extract hours, minutes, and seconds from buffDuration
+        buffHr = mq.TLO.Me.Buff(slot+1).Duration.Hours() or 0
+        buffMin = mq.TLO.Me.Buff(slot+1).Duration.Minutes() or 0
+        buffSec = mq.TLO.Me.Buff(slot+1).Duration.Seconds() or 0
+    
+        -- Calculate total minutes and total seconds
+        totalMin = mq.TLO.Me.Buff(slot+1).Duration.TotalMinutes() or 0
+        totalSec = mq.TLO.Me.Buff(slot+1).Duration.TotalSeconds() or 0
+        -- print(totalSec)
+        buffDurHMS = mq.TLO.Me.Buff(slot+1).Duration.TimeHMS() or ''
+        buffTooltip = string.format("%s) %s (%s)",slot+1, buffName, buffDurHMS)
+
     end
+
     if buffs[slot] ~= nil then
         if buffs[slot].ID ~= buffID  or (buffID > 0 and totalSec < 20) then changed = true end
     end
@@ -154,39 +177,50 @@ local function GetBuff(slot)
 end
 
 local function GetSong(slot)
-    local songTooltip = mq.TLO.Window('ShortDurationBuffWindow').Child('SDBW_Buff'..slot..'_Button').Tooltip() or ''
-
-    local songName = mq.TLO.Me.Song(slot+1).Name() or ''
-    local songDuration,songIcon,songID,songBeneficial,songHr,songMin,songSec,totalMin,totalSec,songDurHMS 
-    if songTooltip:find('%(') then
-        -- songName = mq.TLO.Me.Song(slot+1).Name() or '' --songTooltip ~= '' and songTooltip:sub(1, songTooltip:find('%(') - 2) or ''
-        songDuration = songTooltip ~= '' and songTooltip:sub(songTooltip:find('%(') + 1, songTooltip:find('%)') - 1) or ''
-    else
-        -- songName = mq.TLO.Me.Song(slot+1).Name() or '' --songTooltip ~= '' and songTooltip:sub(1, songTooltip:find(':Permanent') - 1) or ''
-        songDuration = '99h 99m 99s'
-    end
-    songHr, songMin, songSec = songDuration:match("(%d+)h"), songDuration:match("(%d+)m"), songDuration:match("(%d+)s")
+    local songTooltip, songName, songDuration, songIcon, songID, songBeneficial, songHr, songMin, songSec, totalMin, totalSec, songDurHMS
+    songName = mq.TLO.Me.Song(slot+1).Name() or ''
     songIcon = mq.TLO.Me.Song(slot+1).SpellIcon() or 0
     songID = songName ~= '' and  (mq.TLO.Me.Song(slot+1).ID() or 0) or 0
     songBeneficial = mq.TLO.Me.Song(slot+1).Beneficial() or false
-    -- Extract hours, minutes, and seconds from songDuration
+    totalMin = mq.TLO.Me.Song(slot+1).Duration.TotalMinutes() or 0
+    totalSec = mq.TLO.Me.Song(slot+1).Duration.TotalSeconds() or 0
 
-    songHr = songHr and string.format("%02d", tonumber(songHr)) or "00"
-    songMin = songMin and string.format("%02d", tonumber(songMin)) or "00"
-    songSec = songSec and string.format("%02d", tonumber(songSec)) or "99"
+    if mq.TLO.MacroQuest.BuildName() == "Emu" then
+        songTooltip = mq.TLO.Window('ShortDurationBuffWindow').Child('SDBW_Buff'..slot..'_Button').Tooltip() or ''
+        if songTooltip:find('%(') then
+            -- songName = mq.TLO.Me.Song(slot+1).Name() or '' --songTooltip ~= '' and songTooltip:sub(1, songTooltip:find('%(') - 2) or ''
+            songDuration = songTooltip ~= '' and songTooltip:sub(songTooltip:find('%(') + 1, songTooltip:find('%)') - 1) or ''
+        else
+            -- songName = mq.TLO.Me.Song(slot+1).Name() or '' --songTooltip ~= '' and songTooltip:sub(1, songTooltip:find(':Permanent') - 1) or ''
+            songDuration = '99h 99m 99s'
+        end
+        songHr, songMin, songSec = songDuration:match("(%d+)h"), songDuration:match("(%d+)m"), songDuration:match("(%d+)s")
 
-    -- Calculate total minutes and total seconds
-    local totalMin = mq.TLO.Me.Song(slot+1).Duration.TotalMinutes() or 0
-    local totalSec = mq.TLO.Me.Song(slot+1).Duration.TotalSeconds() or 0
-    local songDurHMS = ""
-    if songHr  == "99" then
-        songDurHMS = "Permanent"
-        totalSec = 99999
-    elseif songHr  ~= "00" then
-        songDurHMS = songHr .. ":".. songMin .. ":" .. songSec
+        -- Extract hours, minutes, and seconds from songDuration
+
+        songHr = songHr and string.format("%02d", tonumber(songHr)) or "00"
+        songMin = songMin and string.format("%02d", tonumber(songMin)) or "00"
+        songSec = songSec and string.format("%02d", tonumber(songSec)) or "99"
+
+        -- Calculate total minutes and total seconds
+
+        songDurHMS = ""
+        if songHr  == "99" then
+            songDurHMS = "Permanent"
+            totalSec = 99999
+        elseif songHr  ~= "00" then
+            songDurHMS = songHr .. ":".. songMin .. ":" .. songSec
+        else
+            songDurHMS = songMin .. ":" .. songSec
+        end
     else
-        songDurHMS = songMin .. ":" .. songSec
+        songDurHMS = mq.TLO.Me.Song(slot+1).Duration.TimeHMS() or ''
+        songHr = mq.TLO.Me.Song(slot+1).Duration.Hours() or 0
+        songMin = mq.TLO.Me.Song(slot+1).Duration.Minutes() or 0
+        songSec = mq.TLO.Me.Song(slot+1).Duration.Seconds() or 0
+        songTooltip = string.format("%s) %s (%s)",slot+1, songName, songDurHMS)
     end
+
     if songs[slot] ~= nil then
         if songs[slot].ID ~= songID and os.time() - checkIn >= 6 then changed = true end
     end
