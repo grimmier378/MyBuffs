@@ -28,7 +28,7 @@ local boxes = {}
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
 
 -- local Variables
-local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse)
+local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse, ImGuiWindowFlags.NoFocusOnAppearing)
 local iconSize = 24
 local flashAlpha, flashAlphaT = 1, 255
 local rise, riseT = true, true
@@ -1059,7 +1059,7 @@ local function MyBuffsGUI_Buffs()
         ColorCountConf = 0
         StyleCountConf = 0
         ColorCountConf, StyleCountConf = DrawTheme(themeName)
-        local openConfig, showConfigGui = ImGui.Begin("MyBuffs Conf", true, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoCollapse))
+        local openConfig, showConfigGui = ImGui.Begin("MyBuffs Conf", true, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.NoFocusOnAppearing, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoCollapse))
         ImGui.SetWindowFontScale(Scale)
         if not openConfig then
             ShowConfig  = false
@@ -1231,7 +1231,7 @@ local function MyBuffsGUI_Buffs()
         end
         if found then
             ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
-            local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##"..ME.DisplayName(), true, bit32.bor(ImGuiWindowFlags.AlwaysAutoResize))
+            local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##"..ME.DisplayName(), true, bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoFocusOnAppearing))
             ImGui.SetWindowFontScale(Scale)
 
             if not openDebuffs then
@@ -1263,7 +1263,7 @@ local function MyBuffsGUI_Buffs()
 
     if MailBoxShow then
         local ColorCountMail, StyleCountMail = DrawTheme(themeName)
-        local openMail, showMail = ImGui.Begin("MyBuffs MailBox##MailBox_MyBuffs_"..ME.Name(), true, ImGuiWindowFlags.None)
+        local openMail, showMail = ImGui.Begin("MyBuffs MailBox##MailBox_MyBuffs_"..ME.Name(), true, ImGuiWindowFlags.NoFocusOnAppearing)
         if not openMail then
             MailBoxShow = false
             mailBox = {}
