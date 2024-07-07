@@ -109,8 +109,8 @@ local function GetBuff(slot)
     local buffTooltip , buffName , buffDuration ,buffIcon, buffID, buffBeneficial,buffHr ,buffMin,buffSec, totalMin,totalSec, buffDurHMS
     if mq.TLO.MacroQuest.BuildName() == 'Emu' then
         buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff'..slot..'_Button').Tooltip() or ''
-        buffName = buffTooltip ~= '' and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
-        buffDuration = buffTooltip ~= '' and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
+        buffName = (buffTooltip ~= '' and buffTooltip:find('%(')) and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
+        buffDuration = (buffTooltip ~= '' and buffTooltip:find('%('))  and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
         buffIcon = mq.TLO.Me.Buff(slot+1).SpellIcon() or 0
         buffID = buffName ~= '' and  (mq.TLO.Me.Buff(slot+1).ID() or 0) or 0
         buffBeneficial = mq.TLO.Me.Buff(slot+1).Beneficial() or false
@@ -285,6 +285,7 @@ local function GetBuffs()
     local subject = 'Update'
     debuffOnMe = {}
     numSlots = ME.MaxBuffSlots() or 0
+    if numSlots == 0 then return end
     for i = 0, numSlots -1 do
         GetBuff(i)
     end
