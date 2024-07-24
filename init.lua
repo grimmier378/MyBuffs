@@ -19,10 +19,11 @@ local BUFF = mq.TLO.Me.Buff
 local SONG = mq.TLO.Me.Song
 
 -- Config Paths
-local themeFileOld = mq.configDir .. '/MyThemeZ.lua'
-local themeFile = mq.configDir .. '/MyUI/MyThemeZ.lua'
+local themeFile = mq.configDir .. '/MyThemeZ.lua'
 local configFileOld = mq.configDir .. '/MyUI_Configs.lua'
-local configFile = mq.configDir .. '/MyUI/MyBuffs/'..ME.Name()..'_Config.lua'
+local configFileLast = mq.configDir .. '/MyUI/MyBuffs/'..ME.Name()..'_Config.lua'
+local configFile = ''
+
 -- Tables
 local boxes = {}
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
@@ -48,11 +49,13 @@ local Actor
 local script = 'MyBuffs'
 local themeName = 'Default'
 local mailBox = {}
+local myName, serverName
 -- Timing Variables
 local lastTime = os.clock()
 local checkIn = os.time()
 local frameTime = 1 / 60
 local debuffOnMe = {}
+local currZone, lastZone
 
 -- default config settings
 defaults = {
@@ -254,7 +257,7 @@ end
 
 local function CheckIn()
     local now = os.time()
-    if now - checkIn >= 120 or firstRun then
+    if now - checkIn >= 240 or firstRun then
         checkIn = now
         return true
     end
@@ -270,7 +273,7 @@ local function CheckStale()
             found = true
             break
         else
-            if now - boxes[i].Check > 180 then
+            if now - boxes[i].Check > 300 then
                 table.remove(boxes, i)
                 found = true
                 break
@@ -448,13 +451,8 @@ local function loadTheme()
     if File_Exists(themeFile) then
         theme = dofile(themeFile)
     else
-        if File_Exists(themeFileOld) then
-            theme = dofile(themeFileOld)
-            mq.pickle(themeFile, theme)
-        else
-            theme = require('themes')
-            mq.pickle(themeFile, theme)
-        end
+        theme = require('themes')
+        mq.pickle(themeFile, theme)
     end
     themeName = theme.LoadTheme or 'notheme'
 end
@@ -718,9 +716,9 @@ local function BoxBuffs(id)
             if boxChar == mq.TLO.Me.DisplayName() then 
                 if ImGui.MenuItem("Inspect##"..i) then
                     BUFF(i+1).Inspect()
-                    if build =='Emu' then
-                        mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
-                    end
+                    -- if build =='Emu' then
+                    --     mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
+                    -- end
                 end
             end
             if ImGui.MenuItem("Block##"..i) then
@@ -743,15 +741,6 @@ local function BoxBuffs(id)
             ImGui.EndPopup()
         end
         if ImGui.IsItemHovered() then
-            -- if (ImGui.IsMouseReleased(1)) then
-            --     -- print(boxChar)
-            --     if boxChar == mq.TLO.Me.DisplayName() then
-            --     BUFF(i+1).Inspect()
-            --     if build =='Emu' then
-            --         mq.cmdf("/nomodkey /altkey /notify BuffWindow Buff%s leftmouseup", i)
-            --     end
-            -- end
-            -- end
             if ImGui.IsMouseDoubleClicked(0) then
                 local what = string.format('buff%s',i+1)
                 
@@ -846,9 +835,9 @@ local function BoxSongs(id)
         if ImGui.BeginPopupContextItem("##Song"..tostring(i)) then
             if ImGui.MenuItem("Inspect##"..i) then
                 SONG(i+1).Inspect()
-                if build =='Emu' then
-                    mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i)
-                end
+                -- if build =='Emu' then
+                --     mq.cmdf("/nomodkey /altkey /notify ShortDurationBuffWindow Buff%s leftmouseup", i)
+                -- end
             end
             if ImGui.MenuItem("Block##"..i) then
                 local what = string.format('blocksong%s',sID)
@@ -916,7 +905,7 @@ local function sortedBoxes(boxes)
 end
 
 local function MyBuffsGUI_Buffs()
-    if TLO.Me.Zoning() then return end
+    if currZone ~= lastZone then return end
     -- Default window size
 
     if ShowGUI then
@@ -1019,7 +1008,7 @@ local function MyBuffsGUI_Buffs()
     end
 
     if SplitWin then
-        if TLO.Me.Zoning() then return end
+        if currZone ~= lastZone then return end
         ColorCountSongs = 0
         StyleCountSongs = 0
         local flags = winFlag
@@ -1371,9 +1360,15 @@ local function processCommand(...)
 end
 
 local function init()
+    myName = mq.TLO.Me.Name()
+    serverName = TLO.EverQuest.Server()
+    configFile = string.format("%s/MyUI/MyBuffs/%s/%s.lua",mq.configDir, serverName, myName)
+
     checkArgs(args)
     -- check for theme file or load defaults from our themes.lua
     loadSettings()
+    currZone = mq.TLO.Zone.ID()
+    lastZone = currZone
     if not solo then
         RegisterActor()
     end
@@ -1388,14 +1383,13 @@ end
 local function MainLoop()
     while RUNNING do
         if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
-        if not solo then mq.delay(500) else mq.delay(33) end -- refresh faster if solo, otherwise every 1 second to report is reasonable
-        while ME.Zoning() do
-            mq.delay(9000, function() return not ME.Zoning() end)
+        currZone = mq.TLO.Zone.ID()
+        if not solo then mq.delay(500) else mq.delay(33) end -- refresh faster if solo, otherwise every half second to report is reasonable
+        if currZone ~= lastZone then
+            mq.delay(100)
+            lastZone = currZone
         end
 
-        if not RUNNING then
-            return false
-        end
         if not solo then CheckStale() end
         GetBuffs()
     end
