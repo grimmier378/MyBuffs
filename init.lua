@@ -482,81 +482,12 @@ local function loadSettings()
     end
     
     loadTheme()
-    
-    if settings[script].locked == nil then
-        settings[script].locked = false
-        newSetting = true
-    end
-    
-    if settings[script].Scale == nil then
-        settings[script].Scale = 1
-        newSetting = true
-    end
 
-    if settings[script].DoPulse == nil then
-        settings[script].DoPulse = true
-        newSetting = true
-    end
-    
-    if settings[script].PulseSpeed == nil then
-        settings[script].PulseSpeed = 5
-        newSetting = true
-    end
-
-    if not settings[script].LoadTheme then
-        settings[script].LoadTheme = theme.LoadTheme
-        newSetting = true
-    end
-    
-    if settings[script].IconSize == nil then
-        settings[script].IconSize = iconSize
-        newSetting = true
-    end
-    
-    if settings[script].ShowIcons == nil then
-        settings[script].ShowIcons = ShowIcons
-        newSetting = true
-    end
-    
-    if settings[script].ShowText == nil then
-        settings[script].ShowText = ShowText
-        newSetting = true
-    end
-    
-    if settings[script].ShowTimer == nil then
-        settings[script].ShowTimer = ShowTimer
-        newSetting = true
-    end
-
-    if settings[script].ShowDebuffs == nil then
-        settings[script].ShowDebuffs = ShowDebuffs
-        newSetting = true
-    end
-
-    if settings[script].SplitWin == nil then
-        settings[script].SplitWin = SplitWin
-        newSetting = true
-    end
-
-    if settings[script].BuffTimer == nil then
-        settings[script].BuffTimer = buffTime
-        newSetting = true
-    end
-
-    if not settings[script].TimerColor then
-        settings[script].TimerColor = {}
-        settings[script].TimerColor = {1,1,1,1}
-        newSetting = true
-    end
-
-    if settings[script].SongTimer == nil then
-        settings[script].SongTimer = songTimer
-        newSetting = true
-    end
-
-    if settings[script].ShowScroll == nil then
-        settings[script].ShowScroll = ShowScroll
-        newSetting = true
+    for k, v in pairs(defaults) do
+        if settings[script][k] == nil then
+            settings[script][k] = v
+            newSetting = true
+        end
     end
 
     PulseSpeed = settings[script].PulseSpeed
