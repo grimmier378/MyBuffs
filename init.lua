@@ -53,6 +53,8 @@ local themeName = 'Default'
 local mailBox = {}
 local myName, serverName
 local sortAlphabetically = false
+local sortByDuration = false
+
 -- Timing Variables
 local lastTime = os.clock()
 local checkIn = os.time()
@@ -292,7 +294,7 @@ local function GetBuffs()
     debuffOnMe = {}
     numSlots = ME.MaxBuffSlots() or 0
     if numSlots == 0 then return end
-    for i = 0, numSlots -1 do
+    for i = 0, numSlots - 1 do
         GetBuff(i)
     end
     if mq.TLO.Me.CountSongs() > 0 then
@@ -305,19 +307,27 @@ local function GetBuffs()
     for _, buff in pairs(buffs) do
         if buff.Name ~= '' then table.insert(sortedBuffs, buff) end
     end
-    table.sort(sortedBuffs, function(a, b) return a.Name < b.Name end)
+    if sortAlphabetically then
+        table.sort(sortedBuffs, function(a, b) return a.Name < b.Name end)
+    elseif sortByDuration then
+        table.sort(sortedBuffs, function(a, b) return a.TotalSeconds < b.TotalSeconds end)
+    end
 
     sortedSongs = {}
     for _, song in pairs(songs) do
         if song.Name ~= '' then table.insert(sortedSongs, song) end
     end
-    table.sort(sortedSongs, function(a, b) return a.Name < b.Name end)
+    if sortAlphabetically then
+        table.sort(sortedSongs, function(a, b) return a.Name < b.Name end)
+    elseif sortByDuration then
+        table.sort(sortedSongs, function(a, b) return a.TotalSeconds < b.TotalSeconds end)
+    end
 
     if CheckIn() then changed = true subject = 'CheckIn' end
     if firstRun then subject = 'Hello' end
     if not solo then
         if changed or firstRun then
-            Actor:send({mailbox='my_buffs'}, GenerateContent(subject,songs, buffs))
+            Actor:send({mailbox='my_buffs'}, GenerateContent(subject, songs, buffs))
             changed = false
         else
             for i = 1, #boxes do
@@ -354,6 +364,7 @@ local function GetBuffs()
         end
     end
 end
+
 
 local function RegisterActor()
     Actor = actors.register('my_buffs', function(message)
@@ -890,6 +901,13 @@ local function MyBuffsGUI_Buffs()
                 local sortIcon = sortAlphabetically and Icons.FA_SORT_NUMERIC_ASC .. '##SortSlot' or Icons.MD_SORT_BY_ALPHA .. '##SortAlpha'
                 if ImGui.Button(sortIcon) then
                     sortAlphabetically = not sortAlphabetically
+                    sortByDuration = false
+                    GetBuffs() -- Refresh buffs to apply sorting
+                end
+                local durationIcon = sortByDuration and Icons.FA_SORT_NUMERIC_ASC .. '##SortDuration' or Icons.MD_UPDATE .. '##SortDuration'
+                if ImGui.Button(durationIcon) then
+                    sortByDuration = not sortByDuration
+                    sortAlphabetically = false
                     GetBuffs() -- Refresh buffs to apply sorting
                 end
                 local splitIcon = SplitWin and Icons.FA_TOGGLE_ON ..'##MyBuffsSplit' or Icons.FA_TOGGLE_OFF ..'##MyBuffsSplit'
@@ -936,8 +954,8 @@ local function MyBuffsGUI_Buffs()
                     for i = 1, #sorted_boxes do
                         if sorted_boxes[i].Who == activeButton then
                             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-                            BoxBuffs(i, sortAlphabetically)
-                            if not SplitWin then BoxSongs(i, sortAlphabetically) end
+                            BoxBuffs(i, sortAlphabetically or sortByDuration)
+                            if not SplitWin then BoxSongs(i, sortAlphabetically or sortByDuration) end
                             ImGui.PopStyleVar()
                             break
                         end
@@ -945,8 +963,8 @@ local function MyBuffsGUI_Buffs()
                 end
             else
                 ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-                BoxBuffs(1, sortAlphabetically)
-                if not SplitWin then BoxSongs(1, sortAlphabetically) end
+                BoxBuffs(1, sortAlphabetically or sortByDuration)
+                if not SplitWin then BoxSongs(1, sortAlphabetically or sortByDuration) end
                 ImGui.PopStyleVar()
             end
             ImGui.PopStyleVar()
@@ -981,10 +999,10 @@ local function MyBuffsGUI_Buffs()
         end
         if show then
             if #boxes > 0 then
-                for i =1, #boxes do
+                for i = 1, #boxes do
                     local selected = ImGuiTabItemFlags.None
                     if boxes[i].Who == activeButton then 
-                        BoxSongs(i, sortAlphabetically)
+                        BoxSongs(i, sortAlphabetically or sortByDuration)
                     end
                 end
             end
@@ -1252,6 +1270,7 @@ local function MyBuffsGUI_Buffs()
         mailBox = {}
     end
 end
+
 
 local args = {...}
 local function checkArgs(args)
