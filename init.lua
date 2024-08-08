@@ -898,17 +898,24 @@ local function MyBuffsGUI_Buffs()
                 if ImGui.Button(gIcon..'##MyBuffsg') then
                     ShowConfig = not ShowConfig
                 end
-                local sortIcon = sortAlphabetically and Icons.FA_SORT_NUMERIC_ASC .. '##SortSlot' or Icons.MD_SORT_BY_ALPHA .. '##SortAlpha'
-                if ImGui.Button(sortIcon) then
-                    sortAlphabetically = not sortAlphabetically
-                    sortByDuration = false
-                    GetBuffs() -- Refresh buffs to apply sorting
-                end
-                local durationIcon = sortByDuration and Icons.FA_SORT_NUMERIC_ASC .. '##SortDuration' or Icons.MD_UPDATE .. '##SortDuration'
-                if ImGui.Button(durationIcon) then
-                    sortByDuration = not sortByDuration
-                    sortAlphabetically = false
-                    GetBuffs() -- Refresh buffs to apply sorting
+                
+                if ImGui.BeginMenu(Icons.FA_SORT_AMOUNT_ASC) then
+                        if ImGui.Selectable("Sort by Slot") then
+                            sortAlphabetically = true
+                            sortByDuration = false
+                            GetBuffs() -- Refresh buffs to apply sorting
+                        end
+                        if ImGui.Selectable("Sort by Name") then
+                            sortAlphabetically = false
+                            sortByDuration = false
+                            GetBuffs() -- Refresh buffs to apply sorting
+                        end
+                        if ImGui.Selectable("Sort by Duration") then
+                            sortByDuration = true
+                            sortAlphabetically = false
+                            GetBuffs() -- Refresh buffs to apply sorting
+                        end
+                    ImGui.EndMenu()
                 end
                 local splitIcon = SplitWin and Icons.FA_TOGGLE_ON ..'##MyBuffsSplit' or Icons.FA_TOGGLE_OFF ..'##MyBuffsSplit'
                 if ImGui.Button(splitIcon) then
@@ -1270,7 +1277,6 @@ local function MyBuffsGUI_Buffs()
         mailBox = {}
     end
 end
-
 
 local args = {...}
 local function checkArgs(args)
