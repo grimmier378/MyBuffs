@@ -27,6 +27,8 @@ local configFile = ''
 -- Tables
 local boxes = {}
 local defaults, settings, timerColor, theme, buffs, songs = {}, {}, {}, {}, {}, {}
+local sortedBuffs = {}
+local sortedSongs = {}
 
 -- local Variables
 local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse, ImGuiWindowFlags.NoFocusOnAppearing)
@@ -50,6 +52,7 @@ local script = 'MyBuffs'
 local themeName = 'Default'
 local mailBox = {}
 local myName, serverName
+local sortAlphabetically = false
 -- Timing Variables
 local lastTime = os.clock()
 local checkIn = os.time()
@@ -297,6 +300,19 @@ local function GetBuffs()
             GetSong(i)
         end
     end
+
+    sortedBuffs = {}
+    for _, buff in pairs(buffs) do
+        if buff.Name ~= '' then table.insert(sortedBuffs, buff) end
+    end
+    table.sort(sortedBuffs, function(a, b) return a.Name < b.Name end)
+
+    sortedSongs = {}
+    for _, song in pairs(songs) do
+        if song.Name ~= '' then table.insert(sortedSongs, song) end
+    end
+    table.sort(sortedSongs, function(a, b) return a.Name < b.Name end)
+
     if CheckIn() then changed = true subject = 'CheckIn' end
     if firstRun then subject = 'Hello' end
     if not solo then
@@ -576,12 +592,12 @@ local function DrawTheme(tName)
     return ColorCounter, StyleCounter
 end
 
-local function BoxBuffs(id)
+local function BoxBuffs(id, sorted)
     -- Width and height of each texture
     -- local windowWidth = ImGui.GetWindowContentRegionWidth()
-
+    local buffList = sorted and sortedBuffs or buffs
     local boxChar = boxes[id].Who or '?'
-    local boxBuffs = boxes[id].Buffs or {}
+    local boxBuffs = sorted and sortedBuffs or boxes[id].Buffs or {}
     local buffCount = boxes[id].BuffCount or 0
     local buffSlots = boxes[id].BuffSlots or 0
 
@@ -706,13 +722,14 @@ local function BoxBuffs(id)
     ImGui.EndChild()
 end
 
-local function BoxSongs(id)
+local function BoxSongs(id, sorted)
     -- Width and height of each texture
     if #boxes == 0 then return end
     -- if sCount <= 0 then return end
     -- local windowWidth = ImGui.GetWindowContentRegionWidth()
+    local songList = sorted and sortedSongs or songs
     local boxChar = boxes[id].Who or '?'
-    local boxSongs = boxes[id].Songs or {}
+    local boxSongs = sorted and sortedSongs or boxes[id].Songs or {}
     local sCount = #boxes[id].Songs or 0
     local sizeX , sizeY = ImGui.GetContentRegionAvail()
     ImGui.SeparatorText(boxChar..' Songs##'..boxChar)
@@ -870,6 +887,11 @@ local function MyBuffsGUI_Buffs()
                 if ImGui.Button(gIcon..'##MyBuffsg') then
                     ShowConfig = not ShowConfig
                 end
+                local sortIcon = sortAlphabetically and Icons.FA_SORT_NUMERIC_ASC .. '##SortSlot' or Icons.MD_SORT_BY_ALPHA .. '##SortAlpha'
+                if ImGui.Button(sortIcon) then
+                    sortAlphabetically = not sortAlphabetically
+                    GetBuffs() -- Refresh buffs to apply sorting
+                end
                 local splitIcon = SplitWin and Icons.FA_TOGGLE_ON ..'##MyBuffsSplit' or Icons.FA_TOGGLE_OFF ..'##MyBuffsSplit'
                 if ImGui.Button(splitIcon) then
                     SplitWin = not SplitWin
@@ -914,8 +936,8 @@ local function MyBuffsGUI_Buffs()
                     for i = 1, #sorted_boxes do
                         if sorted_boxes[i].Who == activeButton then
                             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-                            BoxBuffs(i)
-                            if not SplitWin then BoxSongs(i) end
+                            BoxBuffs(i, sortAlphabetically)
+                            if not SplitWin then BoxSongs(i, sortAlphabetically) end
                             ImGui.PopStyleVar()
                             break
                         end
@@ -923,8 +945,8 @@ local function MyBuffsGUI_Buffs()
                 end
             else
                 ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0, 0)
-                BoxBuffs(1)
-                if not SplitWin then BoxSongs(1) end
+                BoxBuffs(1, sortAlphabetically)
+                if not SplitWin then BoxSongs(1, sortAlphabetically) end
                 ImGui.PopStyleVar()
             end
             ImGui.PopStyleVar()
@@ -962,7 +984,7 @@ local function MyBuffsGUI_Buffs()
                 for i =1, #boxes do
                     local selected = ImGuiTabItemFlags.None
                     if boxes[i].Who == activeButton then 
-                        BoxSongs(i)
+                        BoxSongs(i, sortAlphabetically)
                     end
                 end
             end
@@ -1243,7 +1265,6 @@ local function checkArgs(args)
             print('\ayMyBuffs:\ao Setting \atDriver\ax Mode. Actors [\agEnabled\ax] UI [\agOn\ax].')
             print('\ayMyBuffs:\ao Type \at/mybuffs show\ax. to Toggle the UI')
         elseif args[1] == 'client' then
-            openGUI = false
             ShowGUI = false
             solo = false
             print('\ayMyBuffs:\ao Setting \atClient\ax Mode.Actors [\agEnabled\ax] UI [\arOff\ax].')
@@ -1270,7 +1291,6 @@ local function processCommand(...)
         if args[1] == 'gui' or args[1] == 'show' or args[1] == 'open' then
             ShowGUI = not ShowGUI
             if ShowGUI then
-                openGUI = true
                 print('\ayMyBuffs:\ao Toggling GUI \atOpen\ax.')
             else
                 print('\ayMyBuffs:\ao Toggling GUI \atClosed\ax.')
