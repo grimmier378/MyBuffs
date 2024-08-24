@@ -631,19 +631,25 @@ local function BoxBuffs(id, sorted)
         else
         ImGui.BeginChild("Buffs##"..boxChar, sizeX, sizeY, ImGuiChildFlags.Border)
     end
-    for i = 0, buffSlots -1 do
+    local startNum, slot = 0, 0
+    if sortType ~= 'none' then
+        startNum = 1
+    end
+
+    for i = startNum, buffSlots -1 do
+        slot = sortType == 'none' and i+1 or i
         local bID
         local sDurT = ''
         ImGui.BeginGroup()
         if boxBuffs[i] == nil or boxBuffs[i].ID == 0 then
             ImGui.SetWindowFontScale(Scale)
-            ImGui.TextDisabled(tostring(i+1))
+            ImGui.TextDisabled(tostring(slot))
             ImGui.SetWindowFontScale(1)
         else
             bID = boxBuffs[i].Name:sub(1,-1)
             sDurT = boxBuffs[i].Duration or ' '
             if ShowIcons then
-                DrawInspectableSpellIcon(boxBuffs[i].Icon, boxBuffs[i], i+1)
+                DrawInspectableSpellIcon(boxBuffs[i].Icon, boxBuffs[i], slot)
                 ImGui.SameLine()
             end
             if boxChar == mq.TLO.Me.DisplayName() then
@@ -887,15 +893,15 @@ local function MyBuffsGUI_Buffs()
                 if ImGui.Button(gIcon..'##MyBuffsg') then
                     ShowConfig = not ShowConfig
                 end
-
-                if ImGui.BeginMenu(Icons.FA_SORT_AMOUNT_ASC) then
-                        if ImGui.Selectable("Sort by Slot") then
+                local sortIcon = sortType == 'none' and Icons.FA_SORT_NUMERIC_ASC or sortType == 'alpha' and Icons.FA_SORT_ALPHA_ASC or Icons.MD_TIMER
+                if ImGui.BeginMenu(sortIcon) then
+                        if ImGui.Selectable(Icons.FA_SORT_NUMERIC_ASC.." Sort by Slot") then
                             sortType = 'none'
                         end
-                        if ImGui.Selectable("Sort by Name") then
+                        if ImGui.Selectable(Icons.FA_SORT_ALPHA_ASC.." Sort by Name") then
                             sortType = 'alpha'
                         end
-                        if ImGui.Selectable("Sort by Duration") then
+                        if ImGui.Selectable(Icons.MD_TIMER.." Sort by Duration") then
                             sortType = 'dur'
                         end
                     ImGui.EndMenu()
