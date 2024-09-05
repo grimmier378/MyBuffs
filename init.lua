@@ -1150,12 +1150,12 @@ local function MyBuffsGUI_Buffs()
                 ImGui.SetWindowFontScale(Scale)
                 local tFlags = bit32.bor(
                     ImGuiTableFlags.Resizable,
-                    ImGuiTableFlags.Sortable,
+                    -- ImGuiTableFlags.Sortable,
                     -- ImGuiTableFlags.SizingFixedFit,
                     ImGuiTableFlags.Borders,
                     ImGuiTableFlags.BordersOuter,
                     ImGuiTableFlags.Reorderable,
-                    ImGuiTableFlags.ScrollY,
+
                     -- ImGuiTableFlags.ScrollX,
                     ImGuiTableFlags.Hideable
                 )
