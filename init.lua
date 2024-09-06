@@ -129,6 +129,7 @@ local function GenerateContent(subject, songsTable, buffsTable, doWho, doWhat)
         DoWhat = dWhat,
         BuffSlots = numSlots,
         BuffCount = ME.BuffCount(),
+        SongCount = ME.CountSongs(),
         Check = os.time(),
         Subject = subject,
         SortedBuffsA = SortBuffs(buffTable, 'alpha'),
@@ -385,9 +386,10 @@ local function GetBuffs()
                 if boxes[i].Who == ME.DisplayName() then
                     boxes[i].Buffs = buffTable
                     boxes[i].Songs = songTable
-                    boxes[1].BuffSlots = numSlots
-                    boxes[1].BuffCount = ME.BuffCount() or 0
-                    boxes[1].Hello = false
+                    boxes[i].SongCount = ME.CountSongs() or 0
+                    boxes[i].BuffSlots = numSlots
+                    boxes[i].BuffCount = ME.BuffCount() or 0
+                    boxes[i].Hello = false
                     boxes[i].Debuffs = debuffOnMe
                     boxes[i].SortedBuffsA = SortBuffs(buffTable, 'alpha')
                     boxes[i].SortedBuffsD = SortBuffs(buffTable, 'dur')
@@ -417,6 +419,7 @@ local function GetBuffs()
             boxes[1].Songs = songTable
             boxes[1].Who = ME.DisplayName()
             boxes[1].BuffCount = ME.BuffCount() or 0
+            boxes[1].SongCount = ME.CountSongs() or 0
             boxes[1].BuffSlots = numSlots
             boxes[1].Check = os.time()
             boxes[1].Debuffs = debuffOnMe
@@ -496,6 +499,7 @@ local function RegisterActor()
                     boxes[i].BuffSlots = charSlots
                     boxes[i].BuffCount = charCount
                     boxes[i].Debuffs = debuffActor
+                    boxes[i].SongCount = MemberEntry.SongCount or 0
                     boxes[i].SortedBuffsA = charSortBuffsA
                     boxes[i].SortedBuffsD = charSortBuffsD
                     boxes[i].SortedSongsA = charSortSongsA
@@ -511,6 +515,7 @@ local function RegisterActor()
                     Songs        = charSongs,
                     Check        = check,
                     BuffSlots    = charSlots,
+                    SongCount    = MemberEntry.SongCount or 0,
                     BuffCount    = charCount,
                     Debuffs      = debuffActor,
                     SortedBuffsA = charSortBuffsA,
@@ -616,9 +621,13 @@ local function DrawInspectableSpellIcon(iconID, spell, i, view)
     local cursor_x, cursor_y = ImGui.GetCursorPos()
     local beniColor = IM_COL32(0, 20, 180, 190) -- blue benificial default color
     if iconID == 0 and view ~= 'table' then
-        ImGui.SetWindowFontScale(Scale)
-        ImGui.TextDisabled("")
         ImGui.SetWindowFontScale(1)
+        ImGui.TextDisabled("%d", i)
+        ImGui.SetWindowFontScale(1)
+        ImGui.PushID(tostring(iconID) .. i .. "_invis_btn")
+        ImGui.SetCursorPos(cursor_x, cursor_y)
+        ImGui.InvisibleButton("slot" .. tostring(i), ImVec2(iconSize, iconSize), bit32.bor(ImGuiButtonFlags.MouseButtonRight))
+        ImGui.PopID()
         return
     elseif iconID == 0 and view == 'table' then
         return
@@ -689,14 +698,16 @@ local function BoxBuffs(id, sorted, view)
     if not SplitWin then sizeY = math.floor(sizeY * 0.7) else sizeY = math.floor(sizeY * 0.9) end
     if not ShowScroll and view ~= 'table' then
         ImGui.BeginChild("Buffs##" .. boxChar .. view, sizeX, sizeY, ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
-    elseif view ~= 'table' then
+    elseif view ~= 'table' and ShowScroll then
         ImGui.BeginChild("Buffs##" .. boxChar .. view, sizeX, sizeY, ImGuiChildFlags.Border)
+    elseif view == 'table' then
+        ImGui.BeginGroup()
     end
     local startNum, slot = 0, 0
     if sortType ~= 'none' then
         startNum = 1
     end
-    local rowMax = (ImGui.GetColumnWidth(-1) / (iconSize) - 1) or 1
+    local rowMax = math.floor(ImGui.GetColumnWidth(-1) / (iconSize)) or 1
     local rowCount = 0
 
     for i = startNum, buffSlots - 1 do
@@ -751,7 +762,7 @@ local function BoxBuffs(id, sorted, view)
         else
             ImGui.BeginGroup()
 
-            if boxBuffs[i] == nil or boxBuffs[i].ID == 0 then
+            if boxBuffs[i] == nil then
                 ImGui.SetWindowFontScale(1)
                 ImGui.TextDisabled(tostring(slot))
                 rowCount = rowCount + 1
@@ -821,17 +832,19 @@ local function BoxBuffs(id, sorted, view)
             ImGui.EndTooltip()
         end
         if view == 'table' then
-            if rowCount <= rowMax then
+            if rowCount < rowMax then
                 ImGui.SameLine(0, 0.5)
             else
                 rowCount = 0
             end
         end
     end
-    if view ~= 'table' then
+
+    if view == 'table' then
+        ImGui.EndGroup()
+    else
         ImGui.EndChild()
     end
-    -- ImGui.EndChild()
 end
 
 local function BoxSongs(id, sorted, view)
@@ -840,33 +853,36 @@ local function BoxSongs(id, sorted, view)
     if sorted == nil then sorted = 'none' end
     local boxChar = boxes[id].Who or '?'
     local boxSongs = (sorted == 'alpha' and boxes[id].SortedSongsA) or (sorted == 'dur' and boxes[id].SortedSongsD) or boxes[id].Songs
-    local sCount = #boxes[id].Songs or 0
+    local sCount = boxes[id].SongCount or 0
     local sizeX, sizeY = ImGui.GetContentRegionAvail()
     if view ~= 'table' then ImGui.SeparatorText(boxChar .. ' Songs##' .. boxChar) end
-    sizeX, sizeY = ImGui.GetContentRegionAvail()
     sizeX, sizeY = math.floor(sizeX), math.floor(sizeY)
-    local rowCounter = 0
-    local maxSongRow = (ImGui.GetColumnWidth(-1) / (iconSize + 1)) or 1
+
     --------- Songs Section -----------------------
     if ShowScroll and view ~= 'table' then
         ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border)
-    elseif view ~= 'table' then
+    elseif view ~= 'table' and not ShowScroll then
         ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+    elseif view == 'table' then
+        ImGui.BeginGroup()
     end
-    local counterSongs = 1
+    local rowCounterS = 0
+    local maxSongRow = math.floor(ImGui.GetColumnWidth(-1) / (iconSize)) or 1
+    local counterSongs = 0
     for i = 0, 19 do
         if counterSongs > sCount then break end
         -- local songs[i] = songs[i] or nil
         local sID
         if view ~= 'table' then
             ImGui.BeginGroup()
-            if boxSongs[i] == nil or boxSongs[i].ID == 0 then
+            if boxSongs[i] == nil or boxSongs[i].Icon == 0 then
                 ImGui.SetWindowFontScale(Scale)
                 ImGui.TextDisabled("")
                 ImGui.SetWindowFontScale(1)
             else
                 if ShowIcons then
                     DrawInspectableSpellIcon(boxSongs[i].Icon, boxSongs[i], i)
+
                     ImGui.SameLine()
                 end
                 if boxChar == mq.TLO.Me.DisplayName() then
@@ -888,129 +904,81 @@ local function BoxSongs(id, sorted, view)
                 counterSongs = counterSongs + 1
             end
             ImGui.EndGroup()
-            if ImGui.BeginPopupContextItem("##Song" .. tostring(i)) then
-                if ImGui.MenuItem("Inspect##" .. i) then
-                    SONG(boxSongs[i].Name).Inspect()
-                end
-                if ImGui.MenuItem("Block##" .. i) then
-                    local what = string.format('blocksong%s', boxSongs[i].Name)
-                    if not solo then
-                        Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
-                    else
-                        mq.cmdf("/blockspell add me '%s'", boxSongs[i].Name)
+        else
+            ImGui.BeginGroup()
+            if boxSongs[i] ~= nil then
+                if boxSongs[i].Icon > 0 then
+                    if ShowIcons then
+                        DrawInspectableSpellIcon(boxSongs[i].Icon, boxSongs[i], i, view)
+                        rowCounterS = rowCounterS + 1
                     end
+
+                    counterSongs = counterSongs + 1
                 end
-                if ImGui.MenuItem("Remove##" .. i) then
-                    local what = string.format('song%s', boxSongs[i].Name)
-                    if not solo then
-                        Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
-                    else
-                        mq.TLO.Me.Song(boxSongs[i].Name).Remove()
-                    end
-                end
-                ImGui.EndPopup()
             end
-            if ImGui.IsItemHovered() then
-                if ImGui.IsMouseDoubleClicked(0) then
-                    if not solo then
-                        Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, 'song' .. boxSongs[i].Name))
-                    else
-                        mq.TLO.Me.Song(boxSongs[i].Name).Remove()
-                    end
+            ImGui.EndGroup()
+        end
+        if ImGui.BeginPopupContextItem("##Song" .. tostring(i)) then
+            if ImGui.MenuItem("Inspect##" .. i) then
+                SONG(boxSongs[i].Name).Inspect()
+            end
+            if ImGui.MenuItem("Block##" .. i) then
+                local what = string.format('blocksong%s', boxSongs[i].Name)
+                if not solo then
+                    Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
+                else
+                    mq.cmdf("/blockspell add me '%s'", boxSongs[i].Name)
                 end
-                ImGui.BeginTooltip()
-                if boxSongs[i] ~= nil then
-                    if boxSongs[i].Icon > 0 then
-                        if boxChar == mq.TLO.Me.DisplayName() then
-                            ImGui.Text(boxSongs[i].Tooltip)
-                        else
-                            ImGui.Text(boxSongs[i].Name)
-                        end
+            end
+            if ImGui.MenuItem("Remove##" .. i) then
+                local what = string.format('song%s', boxSongs[i].Name)
+                if not solo then
+                    Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
+                else
+                    mq.TLO.Me.Song(boxSongs[i].Name).Remove()
+                end
+            end
+            ImGui.EndPopup()
+        end
+        if ImGui.IsItemHovered() then
+            if ImGui.IsMouseDoubleClicked(0) then
+                if not solo then
+                    Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, 'song' .. boxSongs[i].Name))
+                else
+                    mq.TLO.Me.Song(boxSongs[i].Name).Remove()
+                end
+            end
+            ImGui.BeginTooltip()
+            if boxSongs[i] ~= nil then
+                if boxSongs[i].Icon > 0 then
+                    if boxChar == mq.TLO.Me.DisplayName() then
+                        ImGui.Text(boxSongs[i].Tooltip)
                     else
-                        ImGui.SetWindowFontScale(Scale)
-                        ImGui.Text('none')
-                        ImGui.SetWindowFontScale(1)
+                        ImGui.Text(boxSongs[i].Name)
                     end
                 else
                     ImGui.SetWindowFontScale(Scale)
                     ImGui.Text('none')
                     ImGui.SetWindowFontScale(1)
                 end
-                ImGui.EndTooltip()
+            else
+                ImGui.SetWindowFontScale(Scale)
+                ImGui.Text('none')
+                ImGui.SetWindowFontScale(1)
             end
-        else
-            if boxSongs[i] ~= nil then
-                ImGui.BeginGroup()
-                if boxSongs[i].ID > 0 then
-                    if ShowIcons then
-                        DrawInspectableSpellIcon(boxSongs[i].Icon, boxSongs[i], i, 'table')
-                        rowCounter = rowCounter + 1
-                    end
-
-                    counterSongs = counterSongs + 1
-                end
-                ImGui.EndGroup()
-                if ImGui.BeginPopupContextItem("##Song" .. tostring(i)) then
-                    if ImGui.MenuItem("Inspect##" .. i) then
-                        SONG(boxSongs[i].Name).Inspect()
-                    end
-                    if ImGui.MenuItem("Block##" .. i) then
-                        local what = string.format('blocksong%s', boxSongs[i].Name)
-                        if not solo then
-                            Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
-                        else
-                            mq.cmdf("/blockspell add me '%s'", boxSongs[i].Name)
-                        end
-                    end
-                    if ImGui.MenuItem("Remove##" .. i) then
-                        local what = string.format('song%s', boxSongs[i].Name)
-                        if not solo then
-                            Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
-                        else
-                            mq.TLO.Me.Song(boxSongs[i].Name).Remove()
-                        end
-                    end
-                    ImGui.EndPopup()
-                end
-                if ImGui.IsItemHovered() then
-                    if ImGui.IsMouseDoubleClicked(0) then
-                        if not solo then
-                            Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, 'song' .. boxSongs[i].Name))
-                        else
-                            mq.TLO.Me.Song(boxSongs[i].Name).Remove()
-                        end
-                    end
-                    ImGui.BeginTooltip()
-                    if boxSongs[i] ~= nil then
-                        if boxSongs[i].Icon > 0 then
-                            if boxChar == mq.TLO.Me.DisplayName() then
-                                ImGui.Text(boxSongs[i].Tooltip)
-                            else
-                                ImGui.Text(boxSongs[i].Name)
-                            end
-                        else
-                            ImGui.SetWindowFontScale(Scale)
-                            ImGui.Text('none')
-                            ImGui.SetWindowFontScale(1)
-                        end
-                    else
-                        ImGui.SetWindowFontScale(Scale)
-                        ImGui.Text('none')
-                        ImGui.SetWindowFontScale(1)
-                    end
-                    ImGui.EndTooltip()
-                end
-                if view == 'table' then
-                    if rowCounter <= maxSongRow then
-                        ImGui.SameLine(0, 0.5)
-                    else
-                        rowCounter = 0
-                    end
-                end
+            ImGui.EndTooltip()
+        end
+        if view == 'table' then
+            if rowCounterS < maxSongRow then
+                ImGui.SameLine(0, 0.5)
+            else
+                rowCounterS = 0
             end
         end
     end
-    if view ~= 'table' then
+    if view == 'table' then
+        ImGui.EndGroup()
+    else
         ImGui.EndChild()
     end
 end
@@ -1155,8 +1123,7 @@ local function MyBuffsGUI_Buffs()
                     ImGuiTableFlags.Borders,
                     ImGuiTableFlags.BordersOuter,
                     ImGuiTableFlags.Reorderable,
-
-                    -- ImGuiTableFlags.ScrollX,
+                    ImGuiTableFlags.ScrollY,
                     ImGuiTableFlags.Hideable
                 )
                 if ImGui.BeginTable("Group Table##1", 3, tFlags) then
