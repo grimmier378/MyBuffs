@@ -701,7 +701,8 @@ local function BoxBuffs(id, sorted, view)
     elseif view ~= 'table' and ShowScroll then
         ImGui.BeginChild("Buffs##" .. boxChar .. view, sizeX, sizeY, ImGuiChildFlags.Border)
     elseif view == 'table' then
-        ImGui.BeginGroup()
+        ImGui.BeginChild("Buffs##" .. boxChar, ImVec2(ImGui.GetColumnWidth(-1), 0.0), bit32.bor(ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize),
+            bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize))
     end
     local startNum, slot = 0, 0
     if sortType ~= 'none' then
@@ -714,7 +715,7 @@ local function BoxBuffs(id, sorted, view)
         slot = sortType == 'none' and i + 1 or i
         local bName
         local sDurT = ''
-
+        local drawn = false
         if view ~= 'table' then
             ImGui.BeginGroup()
             if boxBuffs[i] == nil or boxBuffs[i].ID == 0 then
@@ -762,16 +763,13 @@ local function BoxBuffs(id, sorted, view)
         else
             ImGui.BeginGroup()
 
-            if boxBuffs[i] == nil then
-                ImGui.SetWindowFontScale(1)
-                ImGui.TextDisabled(tostring(slot))
-                rowCount = rowCount + 1
-            else
+            if boxBuffs[i] ~= nil then
                 bName = boxBuffs[i].Name:sub(1, -1)
                 sDurT = boxBuffs[i].Duration or ' '
 
                 DrawInspectableSpellIcon(boxBuffs[i].Icon, boxBuffs[i], slot)
                 rowCount = rowCount + 1
+                drawn = true
             end
             ImGui.EndGroup()
         end
@@ -831,7 +829,7 @@ local function BoxBuffs(id, sorted, view)
             end
             ImGui.EndTooltip()
         end
-        if view == 'table' then
+        if view == 'table' and drawn then
             if rowCount < rowMax then
                 ImGui.SameLine(0, 0.5)
             else
@@ -840,11 +838,7 @@ local function BoxBuffs(id, sorted, view)
         end
     end
 
-    if view == 'table' then
-        ImGui.EndGroup()
-    else
-        ImGui.EndChild()
-    end
+    ImGui.EndChild()
 end
 
 local function BoxSongs(id, sorted, view)
@@ -864,7 +858,8 @@ local function BoxSongs(id, sorted, view)
     elseif view ~= 'table' and not ShowScroll then
         ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
     elseif view == 'table' then
-        ImGui.BeginGroup()
+        ImGui.BeginChild("Songs##" .. boxChar, ImVec2(ImGui.GetColumnWidth(-1), 0.0), bit32.bor(ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize),
+            bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize))
     end
     local rowCounterS = 0
     local maxSongRow = math.floor(ImGui.GetColumnWidth(-1) / (iconSize)) or 1
@@ -976,11 +971,8 @@ local function BoxSongs(id, sorted, view)
             end
         end
     end
-    if view == 'table' then
-        ImGui.EndGroup()
-    else
-        ImGui.EndChild()
-    end
+
+    ImGui.EndChild()
 end
 
 local function sortedBoxes(boxes)
@@ -1137,7 +1129,11 @@ local function MyBuffsGUI_Buffs()
                         for i = 1, #boxes do
                             ImGui.TableNextColumn()
                             ImGui.SetWindowFontScale(Scale)
-                            ImGui.Text(boxes[i].Who)
+                            if boxes[i].Who == ME.CleanName() then
+                                ImGui.TextColored(ImVec4(0, 1, 1, 1), boxes[i].Who)
+                            else
+                                ImGui.Text(boxes[i].Who)
+                            end
                             ImGui.TableNextColumn()
                             ImGui.SetWindowFontScale(Scale)
                             BoxBuffs(i, sortType, 'table')
