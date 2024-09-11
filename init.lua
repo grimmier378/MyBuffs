@@ -32,7 +32,7 @@ local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar
 local iconSize = 24
 local flashAlpha, flashAlphaT = 1, 255
 local rise, riseT = true, true
-local ShowGUI, SplitWin, ShowConfig, MailBoxShow, ShowDebuffs = true, false, false, false, false
+local ShowGUI, SplitWin, ShowConfig, MailBoxShow, ShowDebuffs, showTitleBar = true, false, false, false, false, true
 local locked, ShowIcons, ShowTimer, ShowText, ShowScroll, DoPulse = false, true, true, true, true, true
 local RUNNING, firstRun, changed, solo = true, true, false, true
 local songTimer, buffTime = 20, 5       -- timers for how many Minutes left before we show the timer.
@@ -72,6 +72,7 @@ defaults = {
     DoPulse = true,
     PulseSpeed = 5,
     ShowScroll = true,
+    ShowTitleBar = true,
     SplitWin = false,
     SongTimer = 20,
     ShowDebuffs = false,
@@ -162,11 +163,8 @@ local function GetBuff(slot)
         totalMin = tonumber(buffHr) * 60 + tonumber(buffMin)
         totalSec = tonumber(totalMin) * 60 + tonumber(buffSec)
         buffDurHMS = ''
-        if buffHr ~= "00" then
-            buffDurHMS = buffHr .. ":" .. buffMin .. ":" .. buffSec
-        else
-            buffDurHMS = buffMin .. ":" .. buffSec
-        end
+
+        buffDurHMS = buffHr .. ":" .. buffMin .. ":" .. buffSec
     else
         buffName = mq.TLO.Me.Buff(slot + 1).Name() or ''
         buffDuration = mq.TLO.Me.Buff(slot + 1).Duration.TimeHMS() or ''
@@ -274,10 +272,8 @@ local function GetSong(slot)
         if songHr == "99" then
             songDurHMS = "Permanent"
             totalSec = 99999
-        elseif songHr ~= "00" then
-            songDurHMS = songHr .. ":" .. songMin .. ":" .. songSec
         else
-            songDurHMS = songMin .. ":" .. songSec
+            songDurHMS = songHr .. ":" .. songMin .. ":" .. songSec
         end
     else
         songDurHMS = mq.TLO.Me.Song(slot + 1).Duration.TimeHMS() or ''
@@ -591,7 +587,7 @@ local function loadSettings()
             newSetting = true
         end
     end
-
+    showTitleBar = settings[script].ShowTitleBar
     showTableView = settings[script].TableView
     PulseSpeed = settings[script].PulseSpeed
     DoPulse = settings[script].DoPulse
@@ -695,11 +691,11 @@ local function BoxBuffs(id, sorted, view)
 
     -------------------------------------------- Buffs Section ---------------------------------
     if view ~= 'table' then ImGui.SeparatorText(boxChar .. ' Buffs') end
-    if not SplitWin then sizeY = math.floor(sizeY * 0.7) else sizeY = math.floor(sizeY * 0.9) end
+    if not SplitWin then sizeY = math.floor(sizeY * 0.7) else sizeY = 0.0 end
     if not ShowScroll and view ~= 'table' then
-        ImGui.BeginChild("Buffs##" .. boxChar .. view, sizeX, sizeY, ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+        ImGui.BeginChild("Buffs##" .. boxChar .. view, ImVec2(sizeX, sizeY), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
     elseif view ~= 'table' and ShowScroll then
-        ImGui.BeginChild("Buffs##" .. boxChar .. view, sizeX, sizeY, ImGuiChildFlags.Border)
+        ImGui.BeginChild("Buffs##" .. boxChar .. view, ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
     elseif view == 'table' then
         ImGui.BeginChild("Buffs##" .. boxChar, ImVec2(ImGui.GetColumnWidth(-1), 0.0), bit32.bor(ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize),
             bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize))
@@ -850,13 +846,13 @@ local function BoxSongs(id, sorted, view)
     local sCount = boxes[id].SongCount or 0
     local sizeX, sizeY = ImGui.GetContentRegionAvail()
     if view ~= 'table' then ImGui.SeparatorText(boxChar .. ' Songs##' .. boxChar) end
-    sizeX, sizeY = math.floor(sizeX), math.floor(sizeY)
+    sizeX, sizeY = math.floor(sizeX), 0.0
 
     --------- Songs Section -----------------------
     if ShowScroll and view ~= 'table' then
-        ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border)
+        ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY), ImGuiChildFlags.Border)
     elseif view ~= 'table' and not ShowScroll then
-        ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY - 2), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
+        ImGui.BeginChild("Songs##" .. boxChar, ImVec2(sizeX, sizeY), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
     elseif view == 'table' then
         ImGui.BeginChild("Songs##" .. boxChar, ImVec2(ImGui.GetColumnWidth(-1), 0.0), bit32.bor(ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize),
             bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize))
@@ -990,6 +986,12 @@ local function MyBuffsGUI_Buffs()
         local flags = winFlag
         if locked then
             flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
+        end
+        if not settings[script].ShowTitleBar then
+            flags = bit32.bor(ImGuiWindowFlags.NoTitleBar, flags)
+        end
+        if not ShowScroll then
+            flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
         end
         ColorCount, StyleCount = DrawTheme(themeName)
         local openGUI, showMain = ImGui.Begin("MyBuffs##" .. ME.DisplayName(), true, flags)
@@ -1162,6 +1164,9 @@ local function MyBuffsGUI_Buffs()
         if locked then
             flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
         end
+        if not settings[script].ShowTitleBar then
+            flags = bit32.bor(ImGuiWindowFlags.NoTitleBar, flags)
+        end
         if not ShowScroll then
             flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
         end
@@ -1298,38 +1303,46 @@ local function MyBuffsGUI_Buffs()
                 end
 
                 ImGui.Separator()
-                local tmpShowText = ShowText
-                tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
-                if tmpShowText ~= ShowText then
-                    ShowText = tmpShowText
+                if ImGui.BeginTable("Toggles##", 2) then
+                    ImGui.TableNextColumn()
+                    local tmpShowText = ShowText
+                    tmpShowText = ImGui.Checkbox('Show Text', tmpShowText)
+                    if tmpShowText ~= ShowText then
+                        ShowText = tmpShowText
+                    end
+                    ImGui.TableNextColumn()
+                    local tmpShowTimer = ShowTimer
+                    tmpShowTimer = ImGui.Checkbox('Show Timer', tmpShowTimer)
+                    if tmpShowTimer ~= ShowTimer then
+                        ShowTimer = tmpShowTimer
+                    end
+                    ImGui.TableNextColumn()
+                    local tmpScroll = ShowScroll
+                    tmpScroll = ImGui.Checkbox('Show Scrollbar', tmpScroll)
+                    if tmpScroll ~= ShowScroll then
+                        ShowScroll = tmpScroll
+                    end
+                    ImGui.TableNextColumn()
+                    local tmpSplit = SplitWin
+                    tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
+                    if tmpSplit ~= SplitWin then
+                        SplitWin = tmpSplit
+                    end
+                    ImGui.TableNextColumn()
+                    MailBoxShow = ImGui.Checkbox('Show MailBox', MailBoxShow)
+                    ImGui.TableNextColumn()
+                    ShowDebuffs = ImGui.Checkbox('Show Debuffs', ShowDebuffs)
+                    ImGui.TableNextColumn()
+                    showTitleBar = ImGui.Checkbox('Show Title Bar', showTitleBar)
+                    ImGui.EndTable()
                 end
-                ImGui.SameLine()
-                local tmpShowTimer = ShowTimer
-                tmpShowTimer = ImGui.Checkbox('Show Timer', tmpShowTimer)
-                if tmpShowTimer ~= ShowTimer then
-                    ShowTimer = tmpShowTimer
-                end
-
-                local tmpScroll = ShowScroll
-                tmpScroll = ImGui.Checkbox('Show Scrollbar', tmpScroll)
-                if tmpScroll ~= ShowScroll then
-                    ShowScroll = tmpScroll
-                end
-                ImGui.SameLine()
-                local tmpSplit = SplitWin
-                tmpSplit = ImGui.Checkbox('Split Win', tmpSplit)
-                if tmpSplit ~= SplitWin then
-                    SplitWin = tmpSplit
-                end
-                MailBoxShow = ImGui.Checkbox('Show MailBox', MailBoxShow)
-                ImGui.SameLine()
-                ShowDebuffs = ImGui.Checkbox('Show Debuffs', ShowDebuffs)
             end
 
             ImGui.SeparatorText('Save and Close')
 
             if ImGui.Button('Save and Close') then
                 settings = dofile(configFile)
+                settings[script].ShowTitleBar = showTitleBar
                 settings[script].DoPulse = DoPulse
                 settings[script].TimerColor = timerColor
                 settings[script].ShowScroll = ShowScroll
@@ -1354,45 +1367,65 @@ local function MyBuffsGUI_Buffs()
     end
 
     if ShowDebuffs then
-        local found = false
-        ImGui.SetNextWindowSize(80, 239, ImGuiCond.Appearing)
-        for i = 1, #boxes do
-            if #boxes[i].Debuffs > 1 then
-                found = true
-                break
-            end
+        local ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
+        local flags = winFlag
+        if locked then
+            flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
         end
-        if found then
-            ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
-            local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##" .. ME.DisplayName(), true,
-                bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoFocusOnAppearing))
-            ImGui.SetWindowFontScale(Scale)
-
-            if not openDebuffs then
-                ShowDebuffs = false
+        if not settings[script].ShowTitleBar then
+            flags = bit32.bor(ImGuiWindowFlags.NoTitleBar, flags)
+        end
+        if not ShowScroll then
+            flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
+        end
+        local openDebuffs, showDebuffsUI = ImGui.Begin("MyBuffs Debuffs##" .. ME.DisplayName(), true, flags)
+        if not openDebuffs then
+            ShowDebuffs = false
+        end
+        if showDebuffsUI then
+            local found = false
+            ImGui.SetNextWindowSize(80, 239, ImGuiCond.Appearing)
+            for i = 1, #boxes do
+                if #boxes[i].Debuffs > 1 then
+                    found = true
+                    break
+                end
             end
-            if showDebuffs then
-                for i = 1, #boxes do
-                    if #boxes[i].Debuffs > 1 then
-                        if ImGui.BeginChild(boxes[i].Who .. "##Debuffs_" .. boxes[i].Who, 100, 60, bit32.bor(ImGuiChildFlags.Border, ImGuiChildFlags.AutoResizeX)) then
-                            ImGui.Text(boxes[i].Who)
-                            for k, v in pairs(boxes[i].Debuffs) do
-                                if v.ID > 0 then
-                                    DrawInspectableSpellIcon(v.Icon, v, k)
-                                    ImGui.SetItemTooltip(v.Tooltip)
-                                    ImGui.SameLine(0, 0)
+            if found then
+                ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
+                local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##" .. ME.DisplayName(), true,
+                    bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoFocusOnAppearing))
+                ImGui.SetWindowFontScale(Scale)
+
+                if not openDebuffs then
+                    ShowDebuffs = false
+                end
+                if showDebuffs then
+                    for i = 1, #boxes do
+                        if #boxes[i].Debuffs > 1 then
+                            local sizeX, sizeY = ImGui.GetContentRegionAvail()
+                            if ImGui.BeginChild(boxes[i].Who .. "##Debuffs_" .. boxes[i].Who, sizeX, 65,
+                                    bit32.bor(ImGuiChildFlags.Border, ImGuiChildFlags.AutoResizeX),
+                                    bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize)) then
+                                ImGui.Text(boxes[i].Who)
+                                for k, v in pairs(boxes[i].Debuffs) do
+                                    if v.ID > 0 then
+                                        DrawInspectableSpellIcon(v.Icon, v, k)
+                                        ImGui.SetItemTooltip(v.Tooltip)
+                                        ImGui.SameLine(0, 0)
+                                    end
                                 end
                             end
+                            ImGui.EndChild()
                         end
-                        ImGui.EndChild()
                     end
                 end
             end
-            if StyleCountDebuffs > 0 then ImGui.PopStyleVar(StyleCountDebuffs) end
-            if ColorCountDebuffs > 0 then ImGui.PopStyleColor(ColorCountDebuffs) end
-            ImGui.SetWindowFontScale(1)
-            ImGui.End()
         end
+        if StyleCountDebuffs > 0 then ImGui.PopStyleVar(StyleCountDebuffs) end
+        if ColorCountDebuffs > 0 then ImGui.PopStyleColor(ColorCountDebuffs) end
+        ImGui.SetWindowFontScale(1)
+        ImGui.End()
     end
 
     if MailBoxShow then
