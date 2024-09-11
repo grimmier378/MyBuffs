@@ -1367,65 +1367,46 @@ local function MyBuffsGUI_Buffs()
     end
 
     if ShowDebuffs then
-        local ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
-        local flags = winFlag
-        if locked then
-            flags = bit32.bor(ImGuiWindowFlags.NoMove, flags)
-        end
-        if not settings[script].ShowTitleBar then
-            flags = bit32.bor(ImGuiWindowFlags.NoTitleBar, flags)
-        end
-        if not ShowScroll then
-            flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
-        end
-        local openDebuffs, showDebuffsUI = ImGui.Begin("MyBuffs Debuffs##" .. ME.DisplayName(), true, flags)
-        if not openDebuffs then
-            ShowDebuffs = false
-        end
-        if showDebuffsUI then
-            local found = false
-            ImGui.SetNextWindowSize(80, 239, ImGuiCond.Appearing)
-            for i = 1, #boxes do
-                if #boxes[i].Debuffs > 1 then
-                    found = true
-                    break
-                end
+        local found = false
+        ImGui.SetNextWindowSize(80, 239, ImGuiCond.Appearing)
+        for i = 1, #boxes do
+            if #boxes[i].Debuffs > 1 then
+                found = true
+                break
             end
-            if found then
-                ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
-                local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##" .. ME.DisplayName(), true,
-                    bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoFocusOnAppearing))
-                ImGui.SetWindowFontScale(Scale)
+        end
+        if found then
+            ColorCountDebuffs, StyleCountDebuffs = DrawTheme(themeName)
+            local openDebuffs, showDebuffs = ImGui.Begin("MyBuffs Debuffs##" .. ME.DisplayName(), true,
+                bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoFocusOnAppearing))
+            ImGui.SetWindowFontScale(Scale)
 
-                if not openDebuffs then
-                    ShowDebuffs = false
-                end
-                if showDebuffs then
-                    for i = 1, #boxes do
-                        if #boxes[i].Debuffs > 1 then
-                            local sizeX, sizeY = ImGui.GetContentRegionAvail()
-                            if ImGui.BeginChild(boxes[i].Who .. "##Debuffs_" .. boxes[i].Who, sizeX, 65,
-                                    bit32.bor(ImGuiChildFlags.Border, ImGuiChildFlags.AutoResizeX),
-                                    bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize)) then
-                                ImGui.Text(boxes[i].Who)
-                                for k, v in pairs(boxes[i].Debuffs) do
-                                    if v.ID > 0 then
-                                        DrawInspectableSpellIcon(v.Icon, v, k)
-                                        ImGui.SetItemTooltip(v.Tooltip)
-                                        ImGui.SameLine(0, 0)
-                                    end
+            if not openDebuffs then
+                ShowDebuffs = false
+            end
+            if showDebuffs then
+                for i = 1, #boxes do
+                    if #boxes[i].Debuffs > 1 then
+                        local sizeX, sizeY = ImGui.GetContentRegionAvail()
+                        if ImGui.BeginChild(boxes[i].Who .. "##Debuffs_" .. boxes[i].Who, ImVec2(sizeX, 60), bit32.bor(ImGuiChildFlags.Border), bit32.bor(ImGuiWindowFlags.NoScrollbar)) then
+                            ImGui.Text(boxes[i].Who)
+                            for k, v in pairs(boxes[i].Debuffs) do
+                                if v.ID > 0 then
+                                    DrawInspectableSpellIcon(v.Icon, v, k)
+                                    ImGui.SetItemTooltip(v.Tooltip)
+                                    ImGui.SameLine(0, 0)
                                 end
                             end
-                            ImGui.EndChild()
                         end
+                        ImGui.EndChild()
                     end
                 end
             end
+            if StyleCountDebuffs > 0 then ImGui.PopStyleVar(StyleCountDebuffs) end
+            if ColorCountDebuffs > 0 then ImGui.PopStyleColor(ColorCountDebuffs) end
+            ImGui.SetWindowFontScale(1)
+            ImGui.End()
         end
-        if StyleCountDebuffs > 0 then ImGui.PopStyleVar(StyleCountDebuffs) end
-        if ColorCountDebuffs > 0 then ImGui.PopStyleColor(ColorCountDebuffs) end
-        ImGui.SetWindowFontScale(1)
-        ImGui.End()
     end
 
     if MailBoxShow then
