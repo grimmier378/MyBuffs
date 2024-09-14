@@ -1178,8 +1178,8 @@ local function MyBuffsGUI_Buffs()
         if curPosX ~= winPosX or curPosY ~= winPosY then
             winPositions.Buffs.y = curPosY
             winPositions.Buffs.x = curPosX
-            settings[script].Buffs.x = curPosX
-            settings[script].Buffs.y = curPosY
+            settings[script].WindowPositions.Buffs.x = curPosX
+            settings[script].WindowPositionsBuffs.y = curPosY
             mq.pickle(configFile, settings)
         end
 
