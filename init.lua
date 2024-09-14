@@ -1194,7 +1194,7 @@ local function MyBuffsGUI_Buffs()
             settings[script].WindowSizes.Buffs.y = winSizeY
             mq.pickle(configFile, settings)
         end
-        if ImGui.BeginPopupContextWindow() then
+        if ImGui.BeginPopupContextWindow("Options") then
             if ImGui.MenuItem("Lock Window") then
                 locked = not locked
                 settings[script].locked = locked
