@@ -96,8 +96,20 @@ defaults = {
     ShowTable = false,
     TimerColor = { 0, 0, 0, 1, },
     UseWindowPositions = false,
-    WindowPositions = {},
-    WindowSizes = {},
+    WindowPositions = {
+        Config = { x = 500, y = 500, },
+        MailBox = { x = 500, y = 500, },
+        Debuffs = { x = 500, y = 500, },
+        Buffs = { x = 500, y = 500, },
+        Songs = { x = 500, y = 500, },
+    },
+    WindowSizes = {
+        Config = { x = 300, y = 500, },
+        MailBox = { x = 500, y = 500, },
+        Debuffs = { x = 500, y = 500, },
+        Buffs = { x = 200, y = 300, },
+        Songs = { x = 200, y = 300, },
+    },
 }
 
 -- Functions
@@ -600,10 +612,24 @@ local function loadSettings()
 
     loadTheme()
 
-    for k, v in pairs(defaults) do
-        if settings[script][k] == nil then
-            settings[script][k] = v
+    for k, v in pairs(defaults.WindowPositions) do
+        if settings[script].WindowPositions[k] == nil then
+            settings[script].WindowPositions[k] = v
             newSetting = true
+        end
+    end
+    for k, v in pairs(defaults.WindowSizes) do
+        if settings[script].WindowSizes[k] == nil then
+            settings[script].WindowSizes[k] = v
+            newSetting = true
+        end
+    end
+    for k, v in pairs(defaults) do
+        if k ~= 'WindowPositions' and k ~= 'WindowSizes' then
+            if settings[script][k] == nil then
+                settings[script][k] = v
+                newSetting = true
+            end
         end
     end
     showTitleBar = settings[script].ShowTitleBar
@@ -625,8 +651,7 @@ local function loadSettings()
     themeName = settings[script].LoadTheme
     winPositions = settings[script].WindowPositions
     useWinPos = settings[script].UseWindowPositions
-    winSizes = settings[script].WindowSizes
-    showMenu = settings[script].ShowMenu
+
     sortType = settings[script].SortBy
     if newSetting then mq.pickle(configFile, settings) end
 end
