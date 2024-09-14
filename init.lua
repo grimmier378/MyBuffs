@@ -612,6 +612,13 @@ local function loadSettings()
 
     loadTheme()
 
+    if settings[script].WindowPositions == nil then
+        settings[script].WindowPositions = {}
+        newSetting = true
+    end
+    if settings[script].WindowSizes == nil then
+        settings[script].WindowSizes = {}
+    end
     for k, v in pairs(defaults.WindowPositions) do
         if settings[script].WindowPositions[k] == nil then
             settings[script].WindowPositions[k] = v
@@ -619,6 +626,9 @@ local function loadSettings()
         end
     end
     for k, v in pairs(defaults.WindowSizes) do
+        if settings[script].WindowSizes == nil then
+            settings[script].WindowSizes = {}
+        end
         if settings[script].WindowSizes[k] == nil then
             settings[script].WindowSizes[k] = v
             newSetting = true
