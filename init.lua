@@ -53,14 +53,19 @@ local sortByDuration = false
 local sortType = 'none'
 local showTableView = true
 local winPositions = {
-    Main = { x = 500, y = 500, },
     Config = { x = 500, y = 500, },
     MailBox = { x = 500, y = 500, },
     Debuffs = { x = 500, y = 500, },
     Buffs = { x = 500, y = 500, },
     Songs = { x = 500, y = 500, },
 }
-
+local winSizes = {
+    Config = { x = 300, y = 500, },
+    MailBox = { x = 500, y = 500, },
+    Debuffs = { x = 500, y = 500, },
+    Buffs = { x = 200, y = 300, },
+    Songs = { x = 200, y = 300, },
+}
 -- Timing Variables
 local lastTime = os.clock()
 local checkIn = os.time()
@@ -94,6 +99,13 @@ defaults = {
         Debuffs = { x = 500, y = 500, },
         Buffs = { x = 500, y = 500, },
         Songs = { x = 500, y = 500, },
+    },
+    WindowSizes = {
+        Config = { x = 300, y = 500, },
+        MailBox = { x = 500, y = 500, },
+        Debuffs = { x = 500, y = 500, },
+        Buffs = { x = 200, y = 300, },
+        Songs = { x = 200, y = 300, },
     },
 }
 
@@ -622,6 +634,7 @@ local function loadSettings()
     themeName = settings[script].LoadTheme
     winPositions = settings[script].WindowPositions
     useWinPos = settings[script].UseWindowPositions
+    winSizes = settings[script].WindowSizes
     if newSetting then mq.pickle(configFile, settings) end
 end
 
@@ -1013,9 +1026,10 @@ local function MyBuffsGUI_Buffs()
 
         ColorCount, StyleCount = DrawTheme(themeName)
         local winPosX, winPosY = winPositions.Buffs.x, winPositions.Buffs.y
-
+        local winSizeX, winSizeY = winSizes.Buffs.x, winSizes.Buffs.y
         if useWinPos then
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
+            ImGui.SetNextWindowSize(ImVec2(winSizeX, winSizeY), ImGuiCond.Appearing)
         end
         local openGUI, showMain = ImGui.Begin("MyBuffs##" .. ME.DisplayName(), true, flags)
         if not openGUI then
@@ -1178,8 +1192,13 @@ local function MyBuffsGUI_Buffs()
         if curPosX ~= winPosX or curPosY ~= winPosY then
             winPositions.Buffs.y = curPosY
             winPositions.Buffs.x = curPosX
+            winSizeX, winSizeY = ImGui.GetWindowSize()
+            winSizes.Buffs.x = winSizeX
+            winSizes.Buffs.y = winSizeY
             settings[script].WindowPositions.Buffs.x = curPosX
             settings[script].WindowPositions.Buffs.y = curPosY
+            settings[script].WindowSizes.Buffs.x = winSizeX
+            settings[script].WindowSizes.Buffs.y = winSizeY
             mq.pickle(configFile, settings)
         end
 
@@ -1205,7 +1224,9 @@ local function MyBuffsGUI_Buffs()
         end
         -- Default window size
         local winPosX, winPosY = winPositions.Songs.x, winPositions.Songs.y
+        local winSizeX, winSizeY = winSizes.Songs.x, winSizes.Songs.y
         if useWinPos then
+            ImGui.SetNextWindowSize(ImVec2(winSizeX, winSizeY), ImGuiCond.Appearing)
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
         end
         ImGui.SetNextWindowSize(216, 239, ImGuiCond.FirstUseEver)
@@ -1231,6 +1252,9 @@ local function MyBuffsGUI_Buffs()
         if curPosX ~= winPosX or curPosY ~= winPosY then
             winPositions.Songs.y = curPosY
             winPositions.Songs.x = curPosX
+            winSizeX, winSizeY = ImGui.GetWindowSize()
+            settings[script].WindowSizes.Songs.x = winSizeX
+            settings[script].WindowSizes.Songs.y = winSizeY
             settings[script].WindowPositions.Songs.x = curPosX
             settings[script].WindowPositions.Songs.y = curPosY
             mq.pickle(configFile, settings)
@@ -1246,8 +1270,10 @@ local function MyBuffsGUI_Buffs()
         ColorCountConf = 0
         StyleCountConf = 0
         local winPosX, winPosY = winPositions.Config.x, winPositions.Config.y
+        local winSizeX, winSizeY = winSizes.Config.x, winSizes.Config.y
         ColorCountConf, StyleCountConf = DrawTheme(themeName)
         if useWinPos then
+            ImGui.SetNextWindowSize(ImVec2(winSizeX, winSizeY), ImGuiCond.Appearing)
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
         end
         ImGui.SetNextWindowSize(200, 300, ImGuiCond.FirstUseEver)
@@ -1419,8 +1445,11 @@ local function MyBuffsGUI_Buffs()
         if curPosX ~= winPosX or curPosY ~= winPosY then
             winPositions.Config.x = curPosX
             winPositions.Config.y = curPosY
+            winSizeX, winSizeY = ImGui.GetWindowSize()
             settings[script].WindowPositions.Config.x = curPosX
             settings[script].WindowPositions.Config.y = curPosY
+            settings[script].WindowSizes.Config.x = winSizeX
+            settings[script].WindowSizes.Config.y = winSizeY
             mq.pickle(configFile, settings)
         end
         if StyleCountConf > 0 then ImGui.PopStyleVar(StyleCountConf) end
@@ -1433,7 +1462,9 @@ local function MyBuffsGUI_Buffs()
         local found = false
         ImGui.SetNextWindowSize(80, 239, ImGuiCond.Appearing)
         local winPosX, winPosY = winPositions.Debuffs.x, winPositions.Debuffs.y
+        local winSizeX, winSizeY = winSizes.Debuffs.x, winSizes.Debuffs.y
         if useWinPos then
+            ImGui.SetNextWindowSize(ImVec2(winSizeX, winSizeY), ImGuiCond.Appearing)
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
         end
         for i = 1, #boxes do
@@ -1471,8 +1502,13 @@ local function MyBuffsGUI_Buffs()
             end
             local curPosX, curPosY = ImGui.GetWindowPos()
             if curPosX ~= winPosX or curPosY ~= winPosY then
+                winSizeX, winSizeY = ImGui.GetWindowSize()
+                winSizes.Debuffs.x = winSizeX
+                winSizes.Debuffs.y = winSizeY
                 winPositions.Debuffs.x = curPosX
                 winPositions.Debuffs.y = curPosY
+                settings[script].WindowSizes.Debuffs.x = winSizeX
+                settings[script].WindowSizes.Debuffs.y = winSizeY
                 settings[script].WindowPositions.Debuffs.x = curPosX
                 settings[script].WindowPositions.Debuffs.y = curPosY
                 mq.pickle(configFile, settings)
@@ -1487,8 +1523,10 @@ local function MyBuffsGUI_Buffs()
     if MailBoxShow then
         local ColorCountMail, StyleCountMail = DrawTheme(themeName)
         local winPosX, winPosY = winPositions.MailBox.x, winPositions.MailBox.y
+        local winSizeX, winSizeY = winSizes.MailBox.x, winSizes.MailBox.y
         if useWinPos then
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
+            ImGui.SetNextWindowSize(ImVec2(winSizeX, winSizeY), ImGuiCond.Appearing)
         end
         local openMail, showMail = ImGui.Begin("MyBuffs MailBox##MailBox_MyBuffs_" .. ME.Name(), true, ImGuiWindowFlags.NoFocusOnAppearing)
         if not openMail then
@@ -1534,8 +1572,11 @@ local function MyBuffsGUI_Buffs()
             local curPosX, curPosY = ImGui.GetWindowPos()
             winPositions.MailBox.x = curPosX
             winPositions.MailBox.y = curPosY
+            winSizeX, winSizeY = ImGui.GetWindowSize()
             settings[script].WindowPositions.MailBox.x = curPosX
             settings[script].WindowPositions.MailBox.y = curPosY
+            settings[script].WindowSizes.MailBox.x = winSizeX
+            settings[script].WindowSizes.MailBox.y = winSizeY
             mq.pickle(configFile, settings)
         end
         if StyleCountMail > 0 then ImGui.PopStyleVar(StyleCountMail) end
