@@ -28,7 +28,7 @@ local boxes = {}
 local defaults, settings, timerColor, theme, buffTable, songTable = {}, {}, {}, {}, {}, {}
 
 -- local Variables
-local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.MenuBar, ImGuiWindowFlags.NoScrollWithMouse, ImGuiWindowFlags.NoFocusOnAppearing)
+local winFlag = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoScrollWithMouse, ImGuiWindowFlags.NoFocusOnAppearing)
 local iconSize = 24
 local flashAlpha, flashAlphaT = 1, 255
 local rise, riseT = true, true
@@ -49,7 +49,7 @@ local themeName = 'Default'
 local mailBox = {}
 local myName, serverName
 local useWinPos = false
-local sortByDuration = false
+local showMenu = false
 local sortType = 'none'
 local showTableView = true
 local winPositions = {
@@ -91,6 +91,9 @@ defaults = {
     ShowDebuffs = false,
     BuffTimer = 5,
     TableView = false,
+    ShowMenu = true,
+    SortBy = 'none',
+    ShowTable = false,
     TimerColor = { 0, 0, 0, 1, },
     UseWindowPositions = false,
     WindowPositions = {},
@@ -623,6 +626,8 @@ local function loadSettings()
     winPositions = settings[script].WindowPositions
     useWinPos = settings[script].UseWindowPositions
     winSizes = settings[script].WindowSizes
+    showMenu = settings[script].ShowMenu
+    sortType = settings[script].SortBy
     if newSetting then mq.pickle(configFile, settings) end
 end
 
@@ -708,7 +713,6 @@ local function BoxBuffs(id, sorted, view)
     local sizeX, sizeY = ImGui.GetContentRegionAvail()
 
     -------------------------------------------- Buffs Section ---------------------------------
-    if view ~= 'table' then ImGui.SeparatorText(boxChar .. ' Buffs') end
     if not SplitWin then sizeY = math.floor(sizeY * 0.7) else sizeY = 0.0 end
     if not ShowScroll and view ~= 'table' then
         ImGui.BeginChild("Buffs##" .. boxChar .. view, ImVec2(sizeX, sizeY), ImGuiChildFlags.Border, ImGuiWindowFlags.NoScrollbar)
@@ -863,7 +867,6 @@ local function BoxSongs(id, sorted, view)
     local boxSongs = (sorted == 'alpha' and boxes[id].SortedSongsA) or (sorted == 'dur' and boxes[id].SortedSongsD) or boxes[id].Songs
     local sCount = boxes[id].SongCount or 0
     local sizeX, sizeY = ImGui.GetContentRegionAvail()
-    if view ~= 'table' then ImGui.SeparatorText(boxChar .. ' Songs##' .. boxChar) end
     sizeX, sizeY = math.floor(sizeX), 0.0
 
     --------- Songs Section -----------------------
@@ -1011,6 +1014,9 @@ local function MyBuffsGUI_Buffs()
         if not ShowScroll then
             flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
         end
+        if showMenu then
+            flags = bit32.bor(flags, ImGuiWindowFlags.MenuBar)
+        end
 
         ColorCount, StyleCount = DrawTheme(themeName)
         local winPosX, winPosY = winPositions.Buffs.x, winPositions.Buffs.y
@@ -1031,7 +1037,7 @@ local function MyBuffsGUI_Buffs()
                     Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
                 if ImGui.Button(lockedIcon) then
                     locked = not locked
-                    settings = dofile(configFile)
+
                     settings[script].locked = locked
                     mq.pickle(configFile, settings)
                 end
@@ -1054,26 +1060,25 @@ local function MyBuffsGUI_Buffs()
 
                     if ImGui.Selectable(splitIcon .. " Split Window") then
                         SplitWin = not SplitWin
-                        settings = dofile(configFile)
+
                         settings[script].SplitWin = SplitWin
                         mq.pickle(configFile, settings)
                     end
 
-                    -- if ImGui.IsItemHovered() then
-                    --     ImGui.BeginTooltip()
-                    --     ImGui.Text("Split Songs into Separate Window")
-                    --     ImGui.EndTooltip()
-                    -- end
-
                     if ImGui.BeginMenu(sortIcon .. " Sort Menu") then
                         if ImGui.Selectable(Icons.FA_SORT_NUMERIC_ASC .. " Sort by Slot") then
                             sortType = 'none'
+                            settings[script].SortBy = sortType
+                            mq.pickle(configFile, settings)
                         end
                         if ImGui.Selectable(Icons.FA_SORT_ALPHA_ASC .. " Sort by Name") then
                             sortType = 'alpha'
+                            settings[script].SortBy = sortType
+                            mq.pickle(configFile, settings)
                         end
                         if ImGui.Selectable(Icons.MD_TIMER .. " Sort by Duration") then
                             sortType = 'dur'
+                            settings[script].SortBy = sortType
                         end
                         ImGui.EndMenu()
                     end
@@ -1189,7 +1194,42 @@ local function MyBuffsGUI_Buffs()
             settings[script].WindowSizes.Buffs.y = winSizeY
             mq.pickle(configFile, settings)
         end
-
+        if ImGui.BeginPopupContextWindow() then
+            if ImGui.MenuItem("Lock Window") then
+                locked = not locked
+                settings[script].locked = locked
+                mq.pickle(configFile, settings)
+            end
+            if ImGui.MenuItem(gIcon .. "Settings") then
+                ShowConfig = not ShowConfig
+            end
+            if ImGui.MenuItem("Show Table") then
+                showTableView = not showTableView
+                settings[script].TableView = showTableView
+                mq.pickle(configFile, settings)
+            end
+            if ImGui.MenuItem("Split Window") then
+                SplitWin = not SplitWin
+                settings[script].SplitWin = SplitWin
+                mq.pickle(configFile, settings)
+            end
+            if ImGui.MenuItem(Icons.FA_SORT_NUMERIC_ASC .. "Sort by Slot") then
+                sortType = 'none'
+                settings[script].SortBy = sortType
+                mq.pickle(configFile, settings)
+            end
+            if ImGui.MenuItem(Icons.FA_SORT_ALPHA_ASC .. "Sort by Name") then
+                sortType = 'alpha'
+                settings[script].SortBy = sortType
+                mq.pickle(configFile, settings)
+            end
+            if ImGui.MenuItem(Icons.MD_TIMER .. "Sort by Duration") then
+                sortType = 'dur'
+                settings[script].SortBy = sortType
+                mq.pickle(configFile, settings)
+            end
+            ImGui.EndPopup()
+        end
         if StyleCount > 0 then ImGui.PopStyleVar(StyleCount) end
         if ColorCount > 0 then ImGui.PopStyleColor(ColorCount) end
         ImGui.SetWindowFontScale(1)
@@ -1402,6 +1442,11 @@ local function MyBuffsGUI_Buffs()
                     showTitleBar = ImGui.Checkbox('Show Title Bar', showTitleBar)
                     ImGui.TableNextColumn()
                     useWinPos = ImGui.Checkbox('Use Window Positions', useWinPos)
+                    ImGui.TableNextColumn()
+                    showMenu = ImGui.Checkbox('Show Menu', showMenu)
+                    ImGui.TableNextColumn()
+                    showTableView = ImGui.Checkbox('Show Table', showTableView)
+
                     ImGui.EndTable()
                 end
             end
@@ -1412,17 +1457,22 @@ local function MyBuffsGUI_Buffs()
                 settings[script].UseWindowPositions = useWinPos
                 settings[script].ShowTitleBar = showTitleBar
                 settings[script].DoPulse = DoPulse
+                settings[script].PulseSpeed = PulseSpeed
                 settings[script].TimerColor = timerColor
                 settings[script].ShowScroll = ShowScroll
                 settings[script].SongTimer = songTimer
                 settings[script].BuffTimer = buffTime
                 settings[script].IconSize = iconSize
                 settings[script].Scale = Scale
+                settings[script].SplitWin = SplitWin
                 settings[script].LoadTheme = themeName
                 settings[script].ShowIcons = ShowIcons
                 settings[script].ShowText = ShowText
                 settings[script].ShowTimer = ShowTimer
                 settings[script].ShowDebuffs = ShowDebuffs
+                settings[script].ShowMenu = showMenu
+                settings[script].ShowMailBox = MailBoxShow
+
                 mq.pickle(configFile, settings)
 
                 ShowConfig = false
