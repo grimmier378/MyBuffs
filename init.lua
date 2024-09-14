@@ -93,20 +93,8 @@ defaults = {
     TableView = false,
     TimerColor = { 0, 0, 0, 1, },
     UseWindowPositions = false,
-    WindowPositions = {
-        Config = { x = 500, y = 500, },
-        MailBox = { x = 500, y = 500, },
-        Debuffs = { x = 500, y = 500, },
-        Buffs = { x = 500, y = 500, },
-        Songs = { x = 500, y = 500, },
-    },
-    WindowSizes = {
-        Config = { x = 300, y = 500, },
-        MailBox = { x = 500, y = 500, },
-        Debuffs = { x = 500, y = 500, },
-        Buffs = { x = 200, y = 300, },
-        Songs = { x = 200, y = 300, },
-    },
+    WindowPositions = {},
+    WindowSizes = {},
 }
 
 -- Functions
@@ -1188,11 +1176,11 @@ local function MyBuffsGUI_Buffs()
         end
 
         local curPosX, curPosY = ImGui.GetWindowPos()
-
-        if curPosX ~= winPosX or curPosY ~= winPosY then
+        local curSizeX, curSizeY = ImGui.GetWindowSize()
+        if curPosX ~= winPosX or curPosY ~= winPosY or curSizeX ~= winSizeX or curSizeY ~= winSizeY then
             winPositions.Buffs.y = curPosY
             winPositions.Buffs.x = curPosX
-            winSizeX, winSizeY = ImGui.GetWindowSize()
+            winSizeX, winSizeY = curSizeX, curSizeY
             winSizes.Buffs.x = winSizeX
             winSizes.Buffs.y = winSizeY
             settings[script].WindowPositions.Buffs.x = curPosX
@@ -1249,10 +1237,11 @@ local function MyBuffsGUI_Buffs()
         end
 
         local curPosX, curPosY = ImGui.GetWindowPos()
-        if curPosX ~= winPosX or curPosY ~= winPosY then
+        local curSizeX, curSizeY = ImGui.GetWindowSize()
+        if curPosX ~= winPosX or curPosY ~= winPosY or curSizeX ~= winSizeX or curSizeY ~= winSizeY then
             winPositions.Songs.y = curPosY
             winPositions.Songs.x = curPosX
-            winSizeX, winSizeY = ImGui.GetWindowSize()
+            winSizeX, winSizeY = curSizeX, curSizeY
             settings[script].WindowSizes.Songs.x = winSizeX
             settings[script].WindowSizes.Songs.y = winSizeY
             settings[script].WindowPositions.Songs.x = curPosX
@@ -1442,10 +1431,11 @@ local function MyBuffsGUI_Buffs()
 
 
         local curPosX, curPosY = ImGui.GetWindowPos()
-        if curPosX ~= winPosX or curPosY ~= winPosY then
+        local curSizeX, curSizeY = ImGui.GetWindowSize()
+        if curPosX ~= winPosX or curPosY ~= winPosY or curSizeX ~= winSizeX or curSizeY ~= winSizeY then
             winPositions.Config.x = curPosX
             winPositions.Config.y = curPosY
-            winSizeX, winSizeY = ImGui.GetWindowSize()
+            winSizeX, winSizeY = curSizeX, curSizeY
             settings[script].WindowPositions.Config.x = curPosX
             settings[script].WindowPositions.Config.y = curPosY
             settings[script].WindowSizes.Config.x = winSizeX
@@ -1501,8 +1491,9 @@ local function MyBuffsGUI_Buffs()
                 end
             end
             local curPosX, curPosY = ImGui.GetWindowPos()
-            if curPosX ~= winPosX or curPosY ~= winPosY then
-                winSizeX, winSizeY = ImGui.GetWindowSize()
+            local curSizeX, curSizeY = ImGui.GetWindowSize()
+            if curPosX ~= winPosX or curPosY ~= winPosY or curSizeX ~= winSizeX or curSizeY ~= winSizeY then
+                winSizeX, winSizeY = curSizeX, curSizeY
                 winSizes.Debuffs.x = winSizeX
                 winSizes.Debuffs.y = winSizeY
                 winPositions.Debuffs.x = curPosX
@@ -1568,11 +1559,13 @@ local function MyBuffsGUI_Buffs()
                 ImGui.EndTable()
             end
         end
-        if useWinPos then
-            local curPosX, curPosY = ImGui.GetWindowPos()
+
+        local curPosX, curPosY = ImGui.GetWindowPos()
+        local curSizeX, curSizeY = ImGui.GetWindowSize()
+        if curPosX ~= winPosX or curPosY ~= winPosY or curSizeX ~= winSizeX or curSizeY ~= winSizeY then
             winPositions.MailBox.x = curPosX
             winPositions.MailBox.y = curPosY
-            winSizeX, winSizeY = ImGui.GetWindowSize()
+            winSizeX, winSizeY = curSizeX, curSizeY
             settings[script].WindowPositions.MailBox.x = curPosX
             settings[script].WindowPositions.MailBox.y = curPosY
             settings[script].WindowSizes.MailBox.x = winSizeX
