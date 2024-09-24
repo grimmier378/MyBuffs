@@ -49,7 +49,7 @@ local themeName = 'Default'
 local mailBox = {}
 local myName, serverName
 local useWinPos = false
-local showMenu = false
+local ShowMenu = false
 local sortType = 'none'
 local showTableView = true
 local winPositions = {
@@ -655,6 +655,7 @@ local function loadSettings()
     ShowText = settings[script].ShowText
     ShowIcons = settings[script].ShowIcons
     ShowDebuffs = settings[script].ShowDebuffs
+    ShowMenu = settings[script].ShowMenu
     iconSize = settings[script].IconSize
     locked = settings[script].locked
     Scale = settings[script].Scale
@@ -1049,7 +1050,7 @@ local function MyBuffsGUI_Buffs()
         if not ShowScroll then
             flags = bit32.bor(flags, ImGuiWindowFlags.NoScrollbar)
         end
-        if showMenu then
+        if ShowMenu then
             flags = bit32.bor(flags, ImGuiWindowFlags.MenuBar)
         end
 
@@ -1060,17 +1061,16 @@ local function MyBuffsGUI_Buffs()
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
             ImGui.SetNextWindowSize(ImVec2(winSizeX, winSizeY), ImGuiCond.Appearing)
         end
+        local splitIcon = SplitWin and Icons.FA_TOGGLE_ON or Icons.FA_TOGGLE_OFF
+        local sortIcon = sortType == 'none' and Icons.FA_SORT_NUMERIC_ASC or sortType == 'alpha' and Icons.FA_SORT_ALPHA_ASC or Icons.MD_TIMER
+        local lockedIcon = locked and Icons.FA_LOCK or Icons.FA_UNLOCK
         local openGUI, showMain = ImGui.Begin("MyBuffs##" .. ME.DisplayName(), true, flags)
         if not openGUI then
             ShowGUI = false
         end
         if showMain then
             if ImGui.BeginMenuBar() then
-                local splitIcon = SplitWin and Icons.FA_TOGGLE_ON or Icons.FA_TOGGLE_OFF
-                local sortIcon = sortType == 'none' and Icons.FA_SORT_NUMERIC_ASC or sortType == 'alpha' and Icons.FA_SORT_ALPHA_ASC or Icons.MD_TIMER
-                local lockedIcon = locked and Icons.FA_LOCK .. '##lockTabButton_MyBuffs' or
-                    Icons.FA_UNLOCK .. '##lockTablButton_MyBuffs'
-                if ImGui.Button(lockedIcon) then
+                if ImGui.Button(lockedIcon .. "##lockTabButton_MyBuffs") then
                     locked = not locked
 
                     settings[script].locked = locked
@@ -1230,7 +1230,8 @@ local function MyBuffsGUI_Buffs()
             mq.pickle(configFile, settings)
         end
         if ImGui.BeginPopupContextWindow("Options") then
-            if ImGui.MenuItem("Lock Window") then
+            local lbl = locked and " Un-Lock Window" or " Lock Window"
+            if ImGui.MenuItem(lockedIcon .. lbl) then
                 locked = not locked
                 settings[script].locked = locked
                 mq.pickle(configFile, settings)
@@ -1478,7 +1479,7 @@ local function MyBuffsGUI_Buffs()
                     ImGui.TableNextColumn()
                     useWinPos = ImGui.Checkbox('Use Window Positions', useWinPos)
                     ImGui.TableNextColumn()
-                    showMenu = ImGui.Checkbox('Show Menu', showMenu)
+                    ShowMenu = ImGui.Checkbox('Show Menu', ShowMenu)
                     ImGui.TableNextColumn()
                     showTableView = ImGui.Checkbox('Show Table', showTableView)
 
@@ -1505,7 +1506,7 @@ local function MyBuffsGUI_Buffs()
                 settings[script].ShowText = ShowText
                 settings[script].ShowTimer = ShowTimer
                 settings[script].ShowDebuffs = ShowDebuffs
-                settings[script].ShowMenu = showMenu
+                settings[script].ShowMenu = ShowMenu
                 settings[script].ShowMailBox = MailBoxShow
 
                 mq.pickle(configFile, settings)
