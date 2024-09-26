@@ -857,7 +857,7 @@ local function BoxBuffs(id, sorted, view)
         end
         if ImGui.IsItemHovered() then
             if ImGui.IsMouseDoubleClicked(0) then
-                local what = string.format('buff%s', boxBuffs[i].ID)
+                local what = string.format('buff%s', boxBuffs[i].Name)
                 if not solo then
                     Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
                 else
