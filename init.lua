@@ -180,9 +180,9 @@ local function GetBuff(slot)
         buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff' .. slot .. '_Button').Tooltip() or ''
         buffName = (buffTooltip ~= '' and buffTooltip:find('%(')) and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
         buffDuration = (buffTooltip ~= '' and buffTooltip:find('%(')) and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
-        buffIcon = mq.TLO.Me.Buff(slot + 1).SpellIcon() or 0
-        buffID = buffName ~= '' and (mq.TLO.Me.Buff(slot + 1).ID() or 0) or 0
-        buffBeneficial = mq.TLO.Me.Buff(slot + 1).Beneficial() or false
+        buffIcon = mq.TLO.Spell(mq.TLO.Me.Buff(slot + 1).Name()).SpellIcon() or 0
+        buffID = buffName ~= '' and (mq.TLO.Spell(mq.TLO.Me.Buff(slot + 1).Name()).ID() or 0) or 0
+        buffBeneficial = mq.TLO.Spell(mq.TLO.Me.Buff(slot + 1).Name()).Beneficial() or false
 
         -- Extract hours, minutes, and seconds from buffDuration
         buffHr, buffMin, buffSec = buffDuration:match("(%d+)h"), buffDuration:match("(%d+)m"), buffDuration:match("(%d+)s")
@@ -483,21 +483,21 @@ local function RegisterActor()
         if MemberEntry.Subject == 'Action' then
             if MemberEntry.DoWho ~= nil and MemberEntry.DoWhat ~= nil then
                 if MemberEntry.DoWho == mq.TLO.Me.DisplayName() then
-                    local bID = MemberEntry.DoWhat:sub(5) or 0
+                    local bName = MemberEntry.DoWhat:sub(5) or 0
                     if MemberEntry.DoWhat:find("^buff") then
-                        mq.TLO.Me.Buff(bID).Remove()
+                        mq.TLO.Me.Buff(bName).Remove()
                         GetBuffs()
                     elseif MemberEntry.DoWhat:find("^song") then
-                        mq.TLO.Me.Song(bID).Remove()
+                        mq.TLO.Me.Song(bName).Remove()
                         GetBuffs()
                     elseif MemberEntry.DoWhat:find("blockbuff") then
-                        bID = MemberEntry.DoWhat:sub(10) or 0
-                        bID = mq.TLO.Spell(bID).ID()
+                        bName = MemberEntry.DoWhat:sub(10) or 0
+                        local bID = mq.TLO.Spell(bName).ID()
                         mq.cmdf("/blockspell add me '%s'", bID)
                         GetBuffs()
                     elseif MemberEntry.DoWhat:find("blocksong") then
-                        local bID = MemberEntry.DoWhat:sub(10) or 0
-                        bID = mq.TLO.Spell(bID).ID()
+                        bName = MemberEntry.DoWhat:sub(10) or 0
+                        local bID = mq.TLO.Spell(bName).ID()
                         mq.cmdf("/blockspell add me '%s'", bID)
                         GetBuffs()
                     end
@@ -670,18 +670,18 @@ end
 --- comments
 ---@param iconID integer
 ---@param spell table
----@param i integer
-local function DrawInspectableSpellIcon(iconID, spell, i, view)
+---@param slotNum integer
+local function DrawInspectableSpellIcon(iconID, spell, slotNum, view)
     if view == nil then view = 'column' end
     local cursor_x, cursor_y = ImGui.GetCursorPos()
     local beniColor = IM_COL32(0, 20, 180, 190) -- blue benificial default color
     if iconID == 0 and view ~= 'table' then
         ImGui.SetWindowFontScale(1)
-        ImGui.TextDisabled("%d", i)
+        ImGui.TextDisabled("%d", slotNum)
         ImGui.SetWindowFontScale(1)
-        ImGui.PushID(tostring(iconID) .. i .. "_invis_btn")
+        ImGui.PushID(tostring(iconID) .. slotNum .. "_invis_btn")
         ImGui.SetCursorPos(cursor_x, cursor_y)
-        ImGui.InvisibleButton("slot" .. tostring(i), ImVec2(iconSize, iconSize), bit32.bor(ImGuiButtonFlags.MouseButtonRight))
+        ImGui.InvisibleButton("slot" .. tostring(slotNum), ImVec2(iconSize, iconSize), bit32.bor(ImGuiButtonFlags.MouseButtonRight))
         ImGui.PopID()
         return
     elseif iconID == 0 and view == 'table' then
@@ -770,6 +770,7 @@ local function BoxBuffs(id, sorted, view)
         local bName
         local sDurT = ''
         local drawn = false
+        -- Normal View
         if view ~= 'table' then
             ImGui.BeginGroup()
             if boxBuffs[i] == nil or boxBuffs[i].ID == 0 then
@@ -778,7 +779,7 @@ local function BoxBuffs(id, sorted, view)
                 ImGui.SetWindowFontScale(1)
             else
                 bName = boxBuffs[i].Name:sub(1, -1)
-                sDurT = boxBuffs[i].Duration or ' '
+                sDurT = boxBuffs[i].Duration ~= nil and boxBuffs[i].Duration or ' '
                 if ShowIcons then
                     DrawInspectableSpellIcon(boxBuffs[i].Icon, boxBuffs[i], slot)
                     ImGui.SameLine()
@@ -836,7 +837,7 @@ local function BoxBuffs(id, sorted, view)
             end
 
             if ImGui.MenuItem("Block##" .. i) then
-                local what = string.format('blockbuff%s', boxBuffs[i].ID)
+                local what = string.format('blockbuff%s', boxBuffs[i].Name)
                 if not solo then
                     Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
                 else
@@ -845,7 +846,7 @@ local function BoxBuffs(id, sorted, view)
             end
 
             if ImGui.MenuItem("Remove##" .. i) then
-                local what = string.format('buff%s', boxBuffs[i].ID)
+                local what = string.format('buff%s', boxBuffs[i].Name)
                 if not solo then
                     Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
                 else
@@ -975,7 +976,7 @@ local function BoxSongs(id, sorted, view)
                 if not solo then
                     Actor:send({ mailbox = 'my_buffs', }, GenerateContent('Action', songTable, buffTable, boxChar, what))
                 else
-                    mq.cmdf("/blockspell add me '%s'", boxSongs[i].Name)
+                    mq.cmdf("/blocksong add me '%s'", boxSongs[i].Name)
                 end
             end
             if ImGui.MenuItem("Remove##" .. i) then
@@ -1342,7 +1343,7 @@ local function MyBuffsGUI_Buffs()
             ImGui.SetNextWindowPos(ImVec2(winPosX, winPosY), ImGuiCond.Appearing)
         end
         ImGui.SetNextWindowSize(200, 300, ImGuiCond.FirstUseEver)
-        local openConfig, showConfigGui = ImGui.Begin("MyBuffs Conf", true, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.NoFocusOnAppearing, ImGuiWindowFlags.NoCollapse))
+        local openConfig, showConfigGui = ImGui.Begin("MyBuffs Conf", nil, bit32.bor(ImGuiWindowFlags.None, ImGuiWindowFlags.NoFocusOnAppearing, ImGuiWindowFlags.NoCollapse))
         ImGui.SetWindowFontScale(Scale)
         if not openConfig then
             ShowConfig = false
@@ -1508,6 +1509,7 @@ local function MyBuffsGUI_Buffs()
                 settings[script].ShowDebuffs = ShowDebuffs
                 settings[script].ShowMenu = ShowMenu
                 settings[script].ShowMailBox = MailBoxShow
+                settings[script].ShowTableView = showTableView
 
                 mq.pickle(configFile, settings)
 
