@@ -174,15 +174,16 @@ local function GenerateContent(subject, songsTable, buffsTable, doWho, doWhat)
 end
 
 local function GetBuff(slot)
+    local fixSlotNum = slot + 1
     local buffTooltip, buffName, buffDuration, buffIcon, buffID, buffBeneficial, buffHr, buffMin, buffSec, totalMin, totalSec, buffDurHMS
     if mq.TLO.MacroQuest.BuildName() == 'Emu' then
         -- buffs are updated more reliably on the BuffWindow ingame on EMU as you will have to periodically retarget yourself to refresh the buffs otherwise.
         buffTooltip = mq.TLO.Window('BuffWindow').Child('BW_Buff' .. slot .. '_Button').Tooltip() or ''
         buffName = (buffTooltip ~= '' and buffTooltip:find('%(')) and buffTooltip:sub(1, buffTooltip:find('%(') - 2) or ''
         buffDuration = (buffTooltip ~= '' and buffTooltip:find('%(')) and buffTooltip:sub(buffTooltip:find('%(') + 1, buffTooltip:find('%)') - 1) or ''
-        buffIcon = mq.TLO.Spell(mq.TLO.Me.Buff(slot + 1).Name()).SpellIcon() or 0
-        buffID = buffName ~= '' and (mq.TLO.Spell(mq.TLO.Me.Buff(slot + 1).Name()).ID() or 0) or 0
-        buffBeneficial = mq.TLO.Spell(mq.TLO.Me.Buff(slot + 1).Name()).Beneficial() or false
+        buffIcon = mq.TLO.Spell(buffName).SpellIcon() or 0
+        buffID = buffName ~= '' and (mq.TLO.Spell(buffName).ID() or 0) or 0
+        buffBeneficial = mq.TLO.Spell(buffName).Beneficial() or false
 
         -- Extract hours, minutes, and seconds from buffDuration
         buffHr, buffMin, buffSec = buffDuration:match("(%d+)h"), buffDuration:match("(%d+)m"), buffDuration:match("(%d+)s")
@@ -197,27 +198,27 @@ local function GetBuff(slot)
 
         buffDurHMS = buffHr .. ":" .. buffMin .. ":" .. buffSec
     else
-        buffName = mq.TLO.Me.Buff(slot + 1).Name() or ''
-        buffDuration = mq.TLO.Me.Buff(slot + 1).Duration.TimeHMS() or ''
-        buffIcon = mq.TLO.Me.Buff(slot + 1).SpellIcon() or 0
-        buffID = mq.TLO.Me.Buff(slot + 1).ID() or 0
-        buffBeneficial = mq.TLO.Me.Buff(slot + 1).Beneficial() or false
+        buffName = mq.TLO.Me.Buff(fixSlotNum).Name() or ''
+        buffDuration = mq.TLO.Me.Buff(fixSlotNum).Duration.TimeHMS() or ''
+        buffIcon = mq.TLO.Me.Buff(fixSlotNum).SpellIcon() or 0
+        buffID = mq.TLO.Me.Buff(fixSlotNum).ID() or 0
+        buffBeneficial = mq.TLO.Me.Buff(fixSlotNum).Beneficial() or false
 
         -- Extract hours, minutes, and seconds from buffDuration
-        buffHr = mq.TLO.Me.Buff(slot + 1).Duration.Hours() or 0
-        buffMin = mq.TLO.Me.Buff(slot + 1).Duration.Minutes() or 0
-        buffSec = mq.TLO.Me.Buff(slot + 1).Duration.Seconds() or 0
+        buffHr = mq.TLO.Me.Buff(fixSlotNum).Duration.Hours() or 0
+        buffMin = mq.TLO.Me.Buff(fixSlotNum).Duration.Minutes() or 0
+        buffSec = mq.TLO.Me.Buff(fixSlotNum).Duration.Seconds() or 0
 
         -- Calculate total minutes and total seconds
-        totalMin = mq.TLO.Me.Buff(slot + 1).Duration.TotalMinutes() or 0
-        totalSec = mq.TLO.Me.Buff(slot + 1).Duration.TotalSeconds() or 0
+        totalMin = mq.TLO.Me.Buff(fixSlotNum).Duration.TotalMinutes() or 0
+        totalSec = mq.TLO.Me.Buff(fixSlotNum).Duration.TotalSeconds() or 0
         -- print(totalSec)
-        buffDurHMS = mq.TLO.Me.Buff(slot + 1).Duration.TimeHMS() or ''
-        buffTooltip = string.format("%s) %s (%s)", slot + 1, buffName, buffDurHMS)
+        buffDurHMS = mq.TLO.Me.Buff(fixSlotNum).Duration.TimeHMS() or ''
+        buffTooltip = string.format("%s) %s (%s)", fixSlotNum, buffName, buffDurHMS)
     end
 
-    if buffTable[slot] ~= nil then
-        if buffTable[slot].ID ~= buffID or (buffID > 0 and totalSec < 20) then changed = true end
+    if buffTable[fixSlotNum] ~= nil then
+        if buffTable[fixSlotNum].ID ~= buffID or (buffID > 0 and totalSec < 20) then changed = true end
     end
     if not buffBeneficial then
         if #debuffOnMe > 0 then
@@ -235,7 +236,7 @@ local function GetBuff(slot)
                     Icon = buffIcon,
                     ID = buffID,
                     Hours = buffHr,
-                    Slot = slot,
+                    Slot = fixSlotNum,
                     Minutes = buffMin,
                     Seconds = buffSec,
                     TotalMinutes = totalMin,
@@ -250,7 +251,7 @@ local function GetBuff(slot)
                 Icon = buffIcon,
                 ID = buffID,
                 Hours = buffHr,
-                Slot = slot,
+                Slot = fixSlotNum,
                 Minutes = buffMin,
                 Seconds = buffSec,
                 TotalMinutes = totalMin,
@@ -259,13 +260,13 @@ local function GetBuff(slot)
             })
         end
     end
-    buffTable[slot] = {
+    buffTable[fixSlotNum] = {
         Name = buffName,
         Beneficial = buffBeneficial,
         Duration = buffDurHMS,
         Icon = buffIcon,
         ID = buffID,
-        Slot = slot,
+        Slot = fixSlotNum,
         Hours = buffHr,
         Minutes = buffMin,
         Seconds = buffSec,
@@ -276,13 +277,14 @@ local function GetBuff(slot)
 end
 
 local function GetSong(slot)
+    local fixSlotNum = slot + 1
     local songTooltip, songName, songDuration, songIcon, songID, songBeneficial, songHr, songMin, songSec, totalMin, totalSec, songDurHMS
-    songName = mq.TLO.Me.Song(slot + 1).Name() or ''
-    songIcon = mq.TLO.Me.Song(slot + 1).SpellIcon() or 0
-    songID = songName ~= '' and (mq.TLO.Me.Song(slot + 1).ID() or 0) or 0
-    songBeneficial = mq.TLO.Me.Song(slot + 1).Beneficial() or false
-    totalMin = mq.TLO.Me.Song(slot + 1).Duration.TotalMinutes() or 0
-    totalSec = mq.TLO.Me.Song(slot + 1).Duration.TotalSeconds() or 0
+    songName = mq.TLO.Me.Song(fixSlotNum).Name() or ''
+    songIcon = mq.TLO.Me.Song(fixSlotNum).SpellIcon() or 0
+    songID = songName ~= '' and (mq.TLO.Me.Song(fixSlotNum).ID() or 0) or 0
+    songBeneficial = mq.TLO.Me.Song(fixSlotNum).Beneficial() or false
+    totalMin = mq.TLO.Me.Song(fixSlotNum).Duration.TotalMinutes() or 0
+    totalSec = mq.TLO.Me.Song(fixSlotNum).Duration.TotalSeconds() or 0
 
     if mq.TLO.MacroQuest.BuildName() == "Emu" then
         songTooltip = mq.TLO.Window('ShortDurationBuffWindow').Child('SDBW_Buff' .. slot .. '_Button').Tooltip() or ''
@@ -307,23 +309,23 @@ local function GetSong(slot)
             songDurHMS = songHr .. ":" .. songMin .. ":" .. songSec
         end
     else
-        songDurHMS = mq.TLO.Me.Song(slot + 1).Duration.TimeHMS() or ''
-        songHr = mq.TLO.Me.Song(slot + 1).Duration.Hours() or 0
-        songMin = mq.TLO.Me.Song(slot + 1).Duration.Minutes() or 0
-        songSec = mq.TLO.Me.Song(slot + 1).Duration.Seconds() or 0
-        songTooltip = string.format("%s) %s (%s)", slot + 1, songName, songDurHMS)
+        songDurHMS = mq.TLO.Me.Song(fixSlotNum).Duration.TimeHMS() or ''
+        songHr = mq.TLO.Me.Song(fixSlotNum).Duration.Hours() or 0
+        songMin = mq.TLO.Me.Song(fixSlotNum).Duration.Minutes() or 0
+        songSec = mq.TLO.Me.Song(fixSlotNum).Duration.Seconds() or 0
+        songTooltip = string.format("%s) %s (%s)", fixSlotNum, songName, songDurHMS)
     end
 
-    if songTable[slot] ~= nil then
-        if songTable[slot].ID ~= songID and os.time() - checkIn >= 6 then changed = true end
+    if songTable[slot + 1] ~= nil then
+        if songTable[slot + 1].ID ~= songID and os.time() - checkIn >= 6 then changed = true end
     end
-    songTable[slot] = {
+    songTable[fixSlotNum] = {
         Name = songName,
         Beneficial = songBeneficial,
         Duration = songDurHMS,
         Icon = songIcon,
         ID = songID,
-        Slot = slot,
+        Slot = fixSlotNum,
         Hours = songHr,
         Minutes = songMin,
         Seconds = songSec,
@@ -758,15 +760,12 @@ local function BoxBuffs(id, sorted, view)
         ImGui.BeginChild("Buffs##" .. boxChar, ImVec2(ImGui.GetColumnWidth(-1), 0.0), bit32.bor(ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize),
             bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.AlwaysAutoResize))
     end
-    local startNum, slot = 0, 0
-    if sortType ~= 'none' then
-        startNum = 1
-    end
+    local startNum, slot = 1, 1
     local rowMax = math.floor(ImGui.GetColumnWidth(-1) / (iconSize)) or 1
     local rowCount = 0
 
-    for i = startNum, buffSlots - 1 do
-        slot = sortType == 'none' and i + 1 or i
+    for i = startNum, buffSlots do
+        slot = i
         local bName
         local sDurT = ''
         local drawn = false
@@ -918,7 +917,7 @@ local function BoxSongs(id, sorted, view)
     local rowCounterS = 0
     local maxSongRow = math.floor(ImGui.GetColumnWidth(-1) / (iconSize)) or 1
     local counterSongs = 0
-    for i = 0, 19 do
+    for i = 1, 20 do
         if counterSongs > sCount then break end
         -- local songs[i] = songs[i] or nil
         local sID
